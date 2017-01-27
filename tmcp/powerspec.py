@@ -10,6 +10,13 @@ class ISM_powerspec(object):
 class SM14_powerspec(ISM_powerspec):
 
     def __init__(self, gamma=11/3, omega=0, L=1.):
+        if gamma < 0:
+            raise AttributeError("gamma<=0 implies infinite variance!")
+        if omega < 0:
+            raise AttributeError("omega<=0 implies infinite variance!")
+        if L < 0:
+            raise AttributeError("Scale length cannot be negative!")
+
         self.gamma = gamma
         self.omega = omega
         self.L = L
