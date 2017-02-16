@@ -89,7 +89,7 @@ class SM14_powerspec(ISM_powerspec):
             Paramaters
             ----------
             dist_array : ndarray
-                An array of distances. Spacing of sequence should be regular
+                An array of distances. Spacing of sequence should be constant
                 and monotonically increasing.
                 Distances expressed as multiples of L
             dens_array: ndarray
@@ -99,12 +99,16 @@ class SM14_powerspec(ISM_powerspec):
             This function uses an FFT transform.
         """
 
-        sampling_k = 1./2*(dist_array[-1] - dist_array[0])
         fourier_dens = np.fft.rfft(dens_array)
-        k_array = np.arange(0, dist_array.size, 1.) * sampling_k
+
+        k_array_1D = np.fft.rfftfreq(dens_array.size,
+                                     dist_array[1]-dist_array[0])
+        kx, ky = np.meshgrid(k_array_1D, k_array_1D) 
+        k_array = np.sqrt(np.power(kx,2) + np.power(ky,2))
 
         ps = self.PS(k_array)
 
-        projected_ps = ps * (fourier_dens*fourier_dens.conj).real_close
+        projected_ps = np.sum(ps * (fourier_dens*fourier_dens.conj()).real,
+                              axis=1)
 
-        return k_array, projected_ps
+        return k_array_1D, projected_ps, fourier_dens
