@@ -4,11 +4,11 @@ import numpy as np
 import scipy.special
 
 
-class ISM_powerspec(object):
+class IsmPowerspec(object):
     pass
 
 
-class SM14_powerspec(ISM_powerspec):
+class SM14Powerspec(IsmPowerspec):
     """ This class holds power-spectra of the form described in
         Sale & Magorrian (2014), i.e.:
 
