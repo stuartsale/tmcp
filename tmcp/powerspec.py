@@ -1,6 +1,7 @@
 from __future__ import print_function, division
 import math
 import numpy as np
+import scipy.special
 
 
 class ISM_powerspec(object):
@@ -58,11 +59,10 @@ class SM14_powerspec(ISM_powerspec):
 
         # Normalisation
 
-        self.R = 1
-        k = np.arange(0, self.L*1000, self.L/100)
-        unnormalised_ps = self.PS(k)
-
-        self.R = 1/(4*math.pi*np.trapz(unnormalised_ps*np.power(k, 2), k))
+        norm_const = 4*math.pi * ((scipy.special.gamma((gamma-3)/2)
+                                   * scipy.special.gamma(1.5+omega))
+                                  / (2 * scipy.special.gamma(gamma/2+omega)))
+        self.R = 1 / norm_const
 
     def PS(self, k):
         """ PS(k)
@@ -100,15 +100,17 @@ class SM14_powerspec(ISM_powerspec):
         """
 
         fourier_dens = np.fft.rfft(dens_array)
+        fourier_dens2 = (fourier_dens*fourier_dens.conj()).real
 
         k_array_1D = np.fft.rfftfreq(dens_array.size,
-                                     dist_array[1]-dist_array[0])
-        kx, ky = np.meshgrid(k_array_1D, k_array_1D) 
-        k_array = np.sqrt(np.power(kx,2) + np.power(ky,2))
+                                     (dist_array[1]-dist_array[0]))
+        kx, ky = np.meshgrid(k_array_1D, k_array_1D)
+        k_array = np.sqrt(np.power(kx, 2) + np.power(ky, 2))
 
         ps = self.PS(k_array)
 
-        projected_ps = np.sum(ps * (fourier_dens*fourier_dens.conj()).real,
-                              axis=1)
+        projected_ps = ((ps[:, 0]*fourier_dens2[0]
+                         + 2*np.sum(ps[:, 1:]*fourier_dens2[1:], axis=1))
+                        * (k_array_1D[1]-k_array_1D[0])/4)
 
         return k_array_1D, projected_ps, fourier_dens
