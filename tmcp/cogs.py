@@ -26,7 +26,7 @@ class CoGsObj(object):
 
     def __init__(self, emitter_abundances, emitter_lines, nH=1e2,
                  sigmaNT=2.0e5, Tg=10., xoH2=0.1, xpH2=0.4, xHe=0.1,
-                 min_col=20, max_col=24, steps=10):
+                 min_col=19, max_col=24, steps=10):
         """ __init__(emitters, sigmaNT=2.0e5, Tg=10., xoH2=0.1, xpH2=0.4,
                  xHe=0.1)
 
@@ -76,7 +76,7 @@ class CoGsObj(object):
         # add emitters
 
         for emitter in emitter_abundances:
-            mycloud.addEmitter(emitter, emitter_abundances[emitter])
+            self.mycloud.addEmitter(emitter, emitter_abundances[emitter])
 
         # set up dicts and arrays needed
 
@@ -91,7 +91,7 @@ class CoGsObj(object):
         # Find values
 
         for i, col in enumerate(cols):
-            self.mycloud.colDen = col
+            self.mycloud.colDen = math.pow(10, col)
             for emitter in emitter_lines:
                 lines_dicts = self.mycloud.lineLum(emitter)
                 for line in emitter_lines[emitter]:
@@ -105,3 +105,37 @@ class CoGsObj(object):
             for line in emitter_lines[emitter]:
                 self.splines[emitter][line] = (
                     InterpolatedUnivariateSpline(cols, TB_dict[emitter][line]))
+
+    def __call__(self, emitter, line, log_col_dens):
+        """ __call__(emitter, line, log_col_dens)
+
+            Get the brightness temperature implied for a given line
+            by some column density
+
+            Attributes
+            ----------
+            emitter : string
+                The emitting species
+            line : int
+                the line number (based on the order by freq)
+            col_dens : float, ndarray(float)
+                The log10 of column density of H nucleons in cm^-2
+
+            Returns
+            -------
+            TB : float
+                The implied brightness temperature(s) given the species
+                and line.
+        """
+
+        # Raises KeyError if species and line have been prepared
+
+        try:
+            return self.splines[emitter][line](log_col_dens)
+        except KeyError:
+            if emitter not in self.splines.keys():
+                raise KeyError("Emitter {0} not in set of CoGs"
+                               .format(emitter))
+            elif line not in self.splines[emitter].keys():
+                raise KeyError("Line {0} for emitter {1} not in set of CoGs"
+                               .format(line, emitter))
