@@ -65,18 +65,18 @@ class CoGsObj(object):
 
         # setup cloud
 
-        self.mycloud = dp.cloud()
-        self.mycloud.nH = nH
-        self.mycloud.sigmaNT = sigmaNT
-        self.mycloud.Tg = Tg
-        self.mycloud.comp.xoH2 = xoH2
-        self.mycloud.comp.xpH2 = xpH2
-        self.mycloud.comp.xHe = xHe
+        self.cloud = dp.cloud()
+        self.cloud.nH = nH
+        self.cloud.sigmaNT = sigmaNT
+        self.cloud.Tg = Tg
+        self.cloud.comp.xoH2 = xoH2
+        self.cloud.comp.xpH2 = xpH2
+        self.cloud.comp.xHe = xHe
 
         # add emitters
 
         for emitter in emitter_abundances:
-            self.mycloud.addEmitter(emitter, emitter_abundances[emitter])
+            self.cloud.addEmitter(emitter, emitter_abundances[emitter])
 
         # set up dicts and arrays needed
 
@@ -91,9 +91,9 @@ class CoGsObj(object):
         # Find values
 
         for i, col in enumerate(cols):
-            self.mycloud.colDen = math.pow(10, col)
+            self.cloud.colDen = math.pow(10, col)
             for emitter in emitter_lines:
-                lines_dicts = self.mycloud.lineLum(emitter)
+                lines_dicts = self.cloud.lineLum(emitter)
                 for line in emitter_lines[emitter]:
                     TB_dict[emitter][line][i] = lines_dicts[line]["intTB"]
 
