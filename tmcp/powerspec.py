@@ -98,6 +98,9 @@ class SM14Powerspec(IsmPowerspec):
             -----
             This function uses an FFT transform.
         """
+        if dist_array.shape != dens_array.shape:
+            raise ValueError("dist_array and dens_array have different "
+                             "shapes.")
 
         fourier_dens = np.fft.rfft(dens_array)
         fourier_dens2 = (fourier_dens*fourier_dens.conj()).real
