@@ -1,8 +1,10 @@
 import numpy as np
-import scipy.linalg as slg
+from scipy.linalg import cho_factor, cho_solve
+from scipy.interpolate import InterpolatedUnivariateSpline
 
-from powerspec import SM14_powerspec
 from cogs import CoGsObj
+from density import QuadraticDensityFunc
+from powerspec import SM14_powerspec
 
 class CloudDataObj(object):
     """ A class to hold an image for some band
@@ -63,6 +65,33 @@ class CloudInducingObj(object):
                                                 - self.inducing_y.reshape(
                                                     self.nu, 1), 2))
 
+        self.inducing_values = {}
+
+    def add_values(self, line_id, values):
+        """ add_values(line_id, values)
+
+            Add the values of the (column density) field at the inducing
+            points for some line.
+
+            Parameters
+            ----------
+            line_id : list
+                The species (str) and line(int) of the image concerned
+            values : ndarray
+                The values of the (column density field at the inducing
+                points.
+                Must have the same size as the number of inducing points.
+
+            Returns
+            -------
+            None
+        """
+        if self.values_check(values):
+            self.inducing_values[line_id] = values
+        else:
+            raise ValueError("The number of values supplied does not match"
+                             " the number of inducing points.")
+
     def values_check(self, values):
         """ values_check(values)
 
@@ -81,6 +110,31 @@ class CloudInducingObj(object):
         """
         return values.shape == self.inducing_x.shape
 
+    def single_diff(self, x_pos, y_pos):
+        """ single_diff(x_pos, y_pos)
+
+            Get the angular differences between a single position
+            as supplied and the inducing points.
+
+            Parameters
+            ----------
+            x_pos : float
+                The x position
+            y_pos :float
+                The y position
+
+            Returns
+            -------
+            ndarray
+                The angular differences between the supplied position
+                and the inducing points.
+                The shape of this matches that of inducing_x and
+                inducing_y.
+        """
+        diff = np.sqrt(np.power(x_pos - self.inducing_x, 2)
+                       + np.power(y_pos - self.inducing_y, 2))
+        return diff
+
 
 class CloudProbObj(object):
     """ This class holds ...
@@ -88,27 +142,27 @@ class CloudProbObj(object):
         Attributes
         ----------
         power_spec : 
+        density_func : 
+        power_spec :
         inducing_dict : dict
         abundances_dict : dict
-        data_list : list
+        data_dict : list(CloudDataObj)
+        inducing_obj : CloudInducingObj
+        dist_array : ndarray
         nz : int
-        lines : dict
-        log_posteriorprob : float
-        means : dict
-        inducing_cov_mat : dict
+        cogs : CoGsObj
     """
 
     def __init__(self, density_func, power_spec, inducing_dict,
-                 abundances_dict, data_list, inducing_obj, nz=10):
-        """ __init__()
-        """
+                 abundances_dict, data_dict, inducing_obj, dist_array, nz=10):
 
         self.density_func = density_func
         self.power_spec = power_spec
         self.inducing_dict = inducing_dict
         self.abundances_dict = abundances_dict
-        self.data_list = data_list
+        self.data_dict = data_dict
         self.inducing_obj = inducing_obj
+        self.dist_array = dist_array
         self.nz = nz
 
         self.lines = []
@@ -127,21 +181,38 @@ class CloudProbObj(object):
         self.inducing_cov_mats = {}
         self.inducing_cov_mats_cho = {}
 
-        # Obtain density function
         # Cycle through observed lines
         for line_id in self.lines:
-            # Check shape of inducing valyues OK
-            self.inducing_obj.values_check(self.inducing_dict[line_id])
+
+            crit_dens = critical_density(line_id[0], line_id[1])
 
             # Trim mean density function
-            # - set to 0 any density < critical density
+            censored_dens = self.density_func.censored_grid(self.dist_array,
+                                                            crit_dens)
+
             # Get mean column density in >0 region
+            self.mean_dict[line_id] = np.sum(censored_dens)
+
             # Project powerspectrum
+            ps = self.power_spec.project(self.dist_array, censored_dens)
+
             # Obtain covariance function
-            self.cov_funcs[line_id] = 
+            cov_values = np.fft.irfft(ps)
+            self.cov_funcs[line_id] = InterpolatedUnivariateSpline(
+                                                self.dist_array, cov_values)
 
 
         # Get CoGs
+        line_dict = {}
+        for line_id in self.lines:
+            if line_id[0] in line_dict:
+                line_dict[line_id[0]].append(line_id[1])
+            else:
+                line_dict[line_id[0]] = [line_dict[1]]
+
+        nHmean = self.density_func.limited_mean()
+        
+        self.cogs = CoGsObj(self.abundance_dict, line_dict, nHmean)
 
     def __getattr__(self, attr):
         """ __getattr__(attr)
@@ -174,7 +245,7 @@ class CloudProbObj(object):
 
         # Get cholesky decompositions
             try:
-                self.inducing_cov_mats_cho[line_id] = slg.cho_factor(
+                self.inducing_cov_mats_cho[line_id] = cho_factor(
                                                self.inducing_cov_mats[line_id],
                                                check_finite=False)
             except np.linalg.linalg.LinAlgError or ValueError:
@@ -219,9 +290,9 @@ class CloudProbObj(object):
 
             # calculate prob
 
-            Q = slg.cho_solve(self.inducing_cov_mats_cho[line_id],
-                              self.inducing_dict[line_id]
-                              - self.mean_dict[line_id])
+            Q = cho_solve(self.inducing_cov_mats_cho[line_id],
+                          self.inducing_values[line_id]
+                          - self.mean_dict[line_id])
 
         # Combine across lines to get total prob
         # - Implement inter-line covariances!?!
@@ -267,3 +338,51 @@ class CloudProbObj(object):
             Returns
             -------
             None
+        """
+        for line_id in self.lines:
+            cov_marg = self.cov_funcs[line_id](0)
+            for indices in np.ndindex(self.data_dict[lineid].shape):
+
+                # work out mean and sd
+                diff = self.inducing_obj.single_diff(
+                            self.data_dict[lineid].x_coord[indices],
+                            self.data_dict[lineid].x_coord[indices])
+                covar_vec =  self.cov_funcs[line_id](diff)
+
+                Q = cho_solve(self.inducing_cov_mats_cho[line_id], covar_vec)
+
+                mean_cond = (self.mean_dict[line_id]
+                             + np.dot(Q,
+                                      self.inducing_values[line_id]
+                                      - self.mean_dict[line_id]))
+                cov_cond = cov_marg - np.dot(Q, covar_vec)
+
+                # use z and mean and sd to get col dens
+                col_dens = mean_cond + cov_cond * self.zs[line_id][indices]
+
+                # use CoG to convert to brightness temp
+                TBs = self.cogs(line_id[0], line_id[1], np.log(col_dens))
+
+                # get likelihood
+                self.log_likelihood += (
+                    - np.log(self.data_dict[line_id].error_array[indices])/2.
+                    - np.sum(np.power((
+                        TBs - self.data_dict[line_id].data_array[indices])
+                        / self.data_dict[line_id].error_array[indices], 2))/2.)
+
+def critical_density(species, line):
+    """ critical_density(species, line)
+
+        Find the critical density of a given transition line
+
+        Parameters
+        ----------
+        species : str
+        line : int
+
+        Returns
+        -------
+        float
+            The critical density
+    """
+    return 0.
