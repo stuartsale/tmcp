@@ -45,6 +45,9 @@ class CloudInducingObj(object):
         inducing_y : ndarray
         nu : int
         inducing_diff : ndarray
+        inducing_values : dict
+        inducing_cov_mats : dict
+        inducing_cov_mats_cho : dict
     """
 
     def __init__(self, inducing_x, inducing_y, inducing_vals):
@@ -67,6 +70,8 @@ class CloudInducingObj(object):
                                                     self.nu, 1), 2))
 
         self.inducing_values = {}
+        self.inducing_cov_mats = {}
+        self.inducing_cov_mats_cho = {}
 
     def add_values(self, line_id, values):
         """ add_values(line_id, values)
@@ -145,30 +150,38 @@ class CloudProbObj(object):
         power_spec :
         density_func :
         power_spec :
-        inducing_dict : dict
+        inducing_obj : CloudInducingObj
         abundances_dict : dict
         data_dict : list(CloudDataObj)
-        inducing_obj : CloudInducingObj
         dist_array : ndarray
         nz : int
         cogs : CoGsObj
+
+        lines : list
+        log_posteriorprob : float
+        log_priorprob : float
+        log_inducingprob : float
+        log_likelihood: float
+        mean_dict : dict
+        cov_funcs : dict
+        inducing_cov_mats : dict
+        inducing_cov_mats_cho : dict
     """
 
-    def __init__(self, density_func, power_spec, inducing_dict,
-                 abundances_dict, data_dict, inducing_obj, dist_array, nz=10):
+    def __init__(self, density_func, power_spec, inducing_obj,
+                 abundances_dict, data_dict, dist_array, nz=10):
 
         self.density_func = density_func
         self.power_spec = power_spec
-        self.inducing_dict = inducing_dict
-        self.abundances_dict = abundances_dict
-        self.data_dict = data_dict
         self.inducing_obj = inducing_obj
+        self.abundances_dict = abundances_dict
+
+        self.data_dict = data_dict
+
         self.dist_array = dist_array
         self.nz = nz
 
         self.lines = []
-        for image in self.data_list:
-            self.lines.append([image.species, image.line])
 
         # initialise (log) probs to 0
         self.log_posteriorprob = 0.
@@ -182,37 +195,8 @@ class CloudProbObj(object):
         self.inducing_cov_mats = {}
         self.inducing_cov_mats_cho = {}
 
-        # Cycle through observed lines
-        for line_id in self.lines:
-
-            crit_dens = critical_density(line_id[0], line_id[1])
-
-            # Trim mean density function
-            censored_dens = self.density_func.censored_grid(self.dist_array,
-                                                            crit_dens)
-
-            # Get mean column density in >0 region
-            self.mean_dict[line_id] = np.sum(censored_dens)
-
-            # Project powerspectrum
-            ps = self.power_spec.project(self.dist_array, censored_dens)
-
-            # Obtain covariance function
-            cov_values = np.fft.irfft(ps)
-            self.cov_funcs[line_id] = InterpolatedUnivariateSpline(
-                                                self.dist_array, cov_values)
-
-        # Get CoGs
-        line_dict = {}
-        for line_id in self.lines:
-            if line_id[0] in line_dict:
-                line_dict[line_id[0]].append(line_id[1])
-            else:
-                line_dict[line_id[0]] = [line_dict[1]]
-
-        nHmean = self.density_func.limited_mean()
-
-        self.cogs = CoGsObj(self.abundance_dict, line_dict, nHmean)
+        # initialise cogs
+        self.cogs = None
 
     def __getattr__(self, attr):
         """ __getattr__(attr)
@@ -303,7 +287,7 @@ class CloudProbObj(object):
                 - np.dot(self.inducing_dict[line_id]
                          - self.mean_dict[line_id], Q)/2.)
 
-    def set_zs(self):
+    def set_zs(self, zs=None):
         """ set_zs()
 
             Set the random numbers employed in the Monte Carlo
@@ -313,7 +297,9 @@ class CloudProbObj(object):
 
             Parameters
             ----------
-            None
+            zs : dict or None
+                The z values to be stored. If zs is None then new values are
+                sampled from the standard normal distribution.
 
             Returns
             -------
@@ -364,11 +350,139 @@ class CloudProbObj(object):
                 TBs = self.cogs(line_id[0], line_id[1], np.log(col_dens))
 
                 # get likelihood
-                self.log_likelihood += (
+                self.log_likelihood += 1./self.nz * (
                     - np.log(self.data_dict[line_id].error_array[indices])/2.
                     - np.sum(np.power((
                         TBs - self.data_dict[line_id].data_array[indices])
                         / self.data_dict[line_id].error_array[indices], 2))/2.)
+
+    @classmethod
+    def new_cloud(cls, density_func, power_spec, inducing_obj, abundances_dict,
+                  data_dict, dist_array, nz=10):
+        """ new_cloud(density_func, power_spec, inducing_obj, 
+                      abundances_dict, data_dict, dist_array, nz=10)
+
+            A factory function to build a new CloudProbObj instance,
+            including initially setting probabilities, covariance 
+            matrices, etc.
+
+            Parameters
+            ----------
+            density_func : DensityFunc or derived
+            power_spec : IsmPowerspec or derived
+            inducing_obj : CloudInducingObj
+            abundances_dict : dict
+            data_dict : dict
+            dist_array : ndarray
+            nz : int
+
+            Returns
+            -------
+            CloudProbObj
+                The new instance with probabilities etc all set.
+        """
+        new_obj = cls(density_func, power_spec, inducing_obj, abundances_dict,
+                      data_dict, dist_array, nz)
+
+        for image in new_obj.data_list:
+            new_obj.lines.append([image.species, image.line])
+
+        # Cycle through observed lines
+        for line_id in new_obj.lines:
+
+            crit_dens = critical_density(line_id[0], line_id[1])
+
+            # Trim mean density function
+            censored_dens = new_obj.density_func.censored_grid(
+                                                new_obj.dist_array, crit_dens)
+
+            # Get mean column density in >0 region
+            new_obj.mean_dict[line_id] = np.sum(censored_dens)
+
+            # Project powerspectrum
+            ps = new_obj.power_spec.project(new_obj.dist_array, censored_dens)
+
+            # Obtain covariance function
+            cov_values = np.fft.irfft(ps)
+            new_obj.cov_funcs[line_id] = InterpolatedUnivariateSpline(
+                                                new_obj.dist_array, cov_values)
+
+        # Get CoGs
+        line_dict = {}
+        for line_id in new_obj.lines:
+            if line_id[0] in line_dict:
+                line_dict[line_id[0]].append(line_id[1])
+            else:
+                line_dict[line_id[0]] = [line_dict[1]]
+
+        nHmean = new_obj.density_func.limited_mean()
+
+        new_obj.cogs = CoGsObj(self.abundance_dict, line_dict, nHmean)
+
+        # Estimate probs
+
+        new_obj.set_prior_logprob()
+        new_obj.set_inducing_cov_matrices()
+        new_obj.set_inducing_logprob()
+        new_obj.set_zs()
+        new_obj.estimate_loglikelihood()
+
+        new_obj.log_posteriorprob = (new_obj.log_priorprob
+                                     + new_obj.log_inducingprob
+                                     + new_obj.log_likelihood)
+
+        return new_obj
+
+    @classmethod
+    def copy_changed_z(cls, prev_cloud, zs):
+        """ copy_changed_z(prev_cloud, zs)
+
+            A factory method to produce a new CloudProbObj instance
+            that copies all hyperparams (i.e. mean_func, power_spec,
+            inducing_obj, abundances) from a previous instance, but
+            the new instance has newly supplied zs.
+
+            Parameters
+            ----------
+            prev_cloud : CloudProbObj
+                The previous instance, upon which the new instance
+                is largely based.
+            zs : dict(ndarray)
+                A dict containing ndarrays of new zs for each line_id
+
+            Returns
+            -------
+            CloudProbObj
+                The new instance with the hyperparams of the previous
+                instance and new zs
+        """
+        new_obj = cls(prev_cloud.density_func, prev_cloud.power_spec,
+                      prev_cloud.inducing_obj, prev_cloud.abundances_dict,
+                      prev_cloud.data_dict, prev_cloud.dist_array,
+                      prev_cloud.nz)
+
+        new_obj.lines = prev_cloud.lines
+
+        new_obj.mean_dict = prev_cloud.mean_dict
+        new_obj.cov_funcs = prev_cloud.cov_funcs
+
+        new_obj.cogs = prev_cloud.cogs
+
+        new_obj.log_priorprob = prev_cloud.log_priorprob
+        new_obj.log_inducingprob = prev_cloud.log_inducingprob
+
+        new_obj.inducing_cov_mats = prev_cloud.inducing_cov_mats
+        new_obj.inducing_cov_mats_cho = prev_cloud.inducing_cov_mats_cho
+
+        # get new likelihood
+        new_obj.set_zs(zs)
+        new_obj.estimate_loglikelihood()
+
+        new_obj.log_posteriorprob = (new_obj.log_priorprob
+                                     + new_obj.log_inducingprob
+                                     + new_obj.log_likelihood)
+
+        return new_obj
 
 
 def critical_density(species, line):
