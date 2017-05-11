@@ -6,6 +6,7 @@ from cogs import CoGsObj
 from density import QuadraticDensityFunc
 from powerspec import SM14_powerspec
 
+
 class CloudDataObj(object):
     """ A class to hold an image for some band
 
@@ -28,7 +29,7 @@ class CloudDataObj(object):
         self.data_array = data_array
         self.error_array = error_array
 
-        if self.data_array.shape != self.error_array.shape
+        if self.data_array.shape != self.error_array.shape:
             raise ValueError("Data and error images are not the same shape")
         if len(self.data_array.shape) != 2:
             raise ValueError("Data image is not 2d")
@@ -141,8 +142,8 @@ class CloudProbObj(object):
 
         Attributes
         ----------
-        power_spec : 
-        density_func : 
+        power_spec :
+        density_func :
         power_spec :
         inducing_dict : dict
         abundances_dict : dict
@@ -201,7 +202,6 @@ class CloudProbObj(object):
             self.cov_funcs[line_id] = InterpolatedUnivariateSpline(
                                                 self.dist_array, cov_values)
 
-
         # Get CoGs
         line_dict = {}
         for line_id in self.lines:
@@ -211,7 +211,7 @@ class CloudProbObj(object):
                 line_dict[line_id[0]] = [line_dict[1]]
 
         nHmean = self.density_func.limited_mean()
-        
+
         self.cogs = CoGsObj(self.abundance_dict, line_dict, nHmean)
 
     def __getattr__(self, attr):
@@ -239,11 +239,11 @@ class CloudProbObj(object):
         # Cycle through lines
         for line_id in self.lines:
 
-        # Fill in cov matrices
+            # Fill in cov matrices
             self.inducing_cov_mats[line_id] = self.cov_funcs[line_id](
                                                     self.inducing_diff)
 
-        # Get cholesky decompositions
+            # Get cholesky decompositions
             try:
                 self.inducing_cov_mats_cho[line_id] = cho_factor(
                                                self.inducing_cov_mats[line_id],
@@ -347,7 +347,7 @@ class CloudProbObj(object):
                 diff = self.inducing_obj.single_diff(
                             self.data_dict[lineid].x_coord[indices],
                             self.data_dict[lineid].x_coord[indices])
-                covar_vec =  self.cov_funcs[line_id](diff)
+                covar_vec = self.cov_funcs[line_id](diff)
 
                 Q = cho_solve(self.inducing_cov_mats_cho[line_id], covar_vec)
 
@@ -369,6 +369,7 @@ class CloudProbObj(object):
                     - np.sum(np.power((
                         TBs - self.data_dict[line_id].data_array[indices])
                         / self.data_dict[line_id].error_array[indices], 2))/2.)
+
 
 def critical_density(species, line):
     """ critical_density(species, line)
