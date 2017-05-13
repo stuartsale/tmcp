@@ -307,8 +307,10 @@ class CloudProbObj(object):
         """
         self.zs = {}
         for line_id in self.lines:
-            self.zs[line_id] = np.random.randn(*self.data_list[line_id].shape,
-                                               self.nz)
+            self.zs[line_id] = np.random.randn(
+                                        self.data_list[line_id].shape[0],
+                                        self.data_list[line_id].shape[1],
+                                        self.nz)
 
     def estimate_loglikelihood(self):
         """ estimate_loglikelihood()
@@ -407,6 +409,10 @@ class CloudProbObj(object):
             new_obj.cov_funcs[line_id] = InterpolatedUnivariateSpline(
                                                 new_obj.dist_array, cov_values)
 
+            # Set inducing values to initially match mean
+            new_obj.inducing_values[line_id] = (np.zeros(new_obj.nu)
+                                                + new_obj.mean_dict[line_id])
+
         # Get CoGs
         line_dict = {}
         for line_id in new_obj.lines:
@@ -476,6 +482,84 @@ class CloudProbObj(object):
 
         # get new likelihood
         new_obj.set_zs(zs)
+        new_obj.estimate_loglikelihood()
+
+        new_obj.log_posteriorprob = (new_obj.log_priorprob
+                                     + new_obj.log_inducingprob
+                                     + new_obj.log_likelihood)
+
+        return new_obj
+
+    @classmethod
+    def copy_changed_hypers(cls, prev_cloud, density_func, power_spec,
+                            inducing_obj, abundances_dict):
+        """ copy_changed_z(prev_cloud, zs)
+
+            A factory method to produce a new CloudProbObj instance
+            that copies the zs from a previous instance, but the new
+            instance has newly supplied all hyperparams (i.e. mean_func,
+            power_spec, inducing_obj, abundances)
+
+            Parameters
+            ----------
+            prev_cloud : CloudProbObj
+                The previous instance, upon which the new instance
+                is largely based.
+            density_func : DensityFunc or derived
+            power_spec : IsmPowerspec or derived
+            inducing_obj : CloudInducingObj
+            abundances_dict : dict
+
+            Returns
+            -------
+            CloudProbObj
+                The new instance with the zs of the previous
+                instance and new hyperparams
+        """
+        new_obj = cls(density_func, power_spec, inducing_obj, abundances_dict,
+                      prev_cloud.data_dict, prev_cloud.dist_array,
+                      prev_cloud.nz)
+
+        new_obj.lines = prev_cloud.lines
+
+        # Cycle through observed lines
+        for line_id in new_obj.lines:
+
+            crit_dens = critical_density(line_id[0], line_id[1])
+
+            # Trim mean density function
+            censored_dens = new_obj.density_func.censored_grid(
+                                                new_obj.dist_array, crit_dens)
+
+            # Get mean column density in >0 region
+            new_obj.mean_dict[line_id] = np.sum(censored_dens)
+
+            # Project powerspectrum
+            ps = new_obj.power_spec.project(new_obj.dist_array, censored_dens)
+
+            # Obtain covariance function
+            cov_values = np.fft.irfft(ps)
+            new_obj.cov_funcs[line_id] = InterpolatedUnivariateSpline(
+                                                new_obj.dist_array, cov_values)
+
+        # Get CoGs
+        line_dict = {}
+        for line_id in new_obj.lines:
+            if line_id[0] in line_dict:
+                line_dict[line_id[0]].append(line_id[1])
+            else:
+                line_dict[line_id[0]] = [line_dict[1]]
+
+        nHmean = new_obj.density_func.limited_mean()
+
+        new_obj.cogs = CoGsObj(self.abundance_dict, line_dict, nHmean)
+
+        # Estimate probs
+
+        new_obj.set_prior_logprob()
+        new_obj.set_inducing_cov_matrices()
+        new_obj.set_inducing_logprob()
+        new_obj.zs = prev_cloud.zs
         new_obj.estimate_loglikelihood()
 
         new_obj.log_posteriorprob = (new_obj.log_priorprob
