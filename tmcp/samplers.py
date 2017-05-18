@@ -1,3 +1,4 @@
+import copy as cp
 import math
 import numpy as np
 
@@ -77,8 +78,10 @@ def update_zs_ESS(prev_cloud):
     return new_cloud
 
 
-def update_hypers_MH(prev_cloud, ):
-    """ update_hypers_MH(prev_cloud, )
+def update_hypers_MH(prev_cloud, density_prop, ps_prop, inducing_prop,
+                     abundances_prop):
+    """ update_hypers_MH(prev_cloud, density_prop, ps_prop, inducing_prop,
+                         abundances_prop))
 
         Sample a new CloudProbObj, keeping the zs held constant,
         but updating hyperparams using a Metropolis-Hastings sampler.
@@ -87,10 +90,33 @@ def update_hypers_MH(prev_cloud, ):
         ----------
         prev_cloud : CloudProbObj
             The previous sampled CloudProbObj
-        ****
+        density_prop : dict
+        ps_prop : dict
+        inducing_prop : dict
+        abundances_prop : dict
 
         Returns
         -------
         new_cloud : CloudProbObj
             The new sampled CloudProbObj
     """
+    # Draw new hyperparams
+
+    new_density_func = prev_cloud.density_func.MH_propose(density_prop)
+    new_power_spec = prev_cloud.power_spec.MH_propose(ps_prop)
+    new_inducing_obj = cp.deepcopy(prev_cloud.inducing_obj)
+    new_abundances = cp.deepcopy(prev_cloud.abundances_dict)
+
+    # create new CloudProbObj
+    new_cloud = CloudProbObj.copy_changed_hypers(prev_cloud, new_density_func,
+                                                 new_power_spec,
+                                                 new_inducing_obj,
+                                                 new_abundances)
+
+    if (new_cloud.log_posterior_prob - prev_clous.log_posteriorprob) > 0:
+        return new_cloud
+    elif ((new_cloud.log_posterior_prob - prev_clous.log_posteriorprob)
+            > math.log(np.random.rand())):
+        return new_cloud
+    else:
+        return prev_cloud

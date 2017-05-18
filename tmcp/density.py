@@ -48,6 +48,33 @@ class QuadraticDensityFunc(DensityFunc):
             dens = max(0., self.a*pow(dist, 2) + self.max_dens)
         return dens
 
+    def MH_propose(self, proposal_width):
+        """ MH_propose(proposal_width)
+
+            Obtain a new QuadraticDensityFunc instance for use in
+            MH-MCMC samplers.
+
+            Parameters
+            ----------
+            proposal_width : dict
+                The width of the (Gaussian) proposal distibution
+                for each paramater
+
+            Returns
+            -------
+            QuadraticDensityFunc
+                The new instance
+        """
+        new_density_func = cp.deepcopy(self)
+        for key in density_prop:
+            new_density_func.__dict__[key] = (prev_cloud.density_func
+                                              .__dict__[key]
+                                              + density_prop[key]
+                                              * np.random.randn())
+        new_density_func.a = (-new_density_func.max_dens
+                              / pow(new_density_func.half_width, 2))
+        return new_density_func
+
     def limited_mean(self):
         """ limited_mean()
 
