@@ -194,6 +194,31 @@ class CloudProbObj(object):
         # initialise cogs
         self.cogs = None
 
+    def __deepcopy__(self, memo):
+        """ ___deeppcopy__(memo)
+
+            A customised deepcopy that avoids the potentially expensive
+            (in both memory and CPU) deep copying of data_dict.
+
+            Parameters
+            ----------
+            memo : dict
+                Used to keep track of what attributes have been copied
+
+            Returns
+            -------
+            CloudProbObj
+                A new instance that shares the same data_dict
+        """
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            if k is not "data_dict":
+                setattr(result, k, cp.deepcopy(v, memo))
+        result.data = self.data
+        return result
+
     def set_inducing_cov_matrices(self):
         """ set_inducing_cov_matrices()
 
