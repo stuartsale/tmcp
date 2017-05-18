@@ -1,3 +1,4 @@
+import copy as cp
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 from scipy.interpolate import InterpolatedUnivariateSpline
@@ -476,20 +477,8 @@ class CloudProbObj(object):
                 The new instance with the hyperparams of the previous
                 instance and new zs
         """
-        new_obj = cls(prev_cloud.density_func, prev_cloud.power_spec,
-                      prev_cloud.inducing_obj, prev_cloud.abundances_dict,
-                      prev_cloud.data_dict, prev_cloud.dist_array,
-                      prev_cloud.nz)
-
-        new_obj.lines = prev_cloud.lines
-
-        new_obj.mean_dict = prev_cloud.mean_dict
-        new_obj.cov_funcs = prev_cloud.cov_funcs
-
-        new_obj.cogs = prev_cloud.cogs
-
-        new_obj.log_priorprob = prev_cloud.log_priorprob
-        new_obj.log_inducingprob = prev_cloud.log_inducingprob
+        # get copy
+        new_obj = cp.deepcopy(prev_cloud)
 
         # get new likelihood
         new_obj.set_zs(zs)
@@ -527,11 +516,14 @@ class CloudProbObj(object):
                 The new instance with the zs of the previous
                 instance and new hyperparams
         """
-        new_obj = cls(density_func, power_spec, inducing_obj, abundances_dict,
-                      prev_cloud.data_dict, prev_cloud.dist_array,
-                      prev_cloud.nz)
+        # get copy
+        new_obj = cp.deepcopy(prev_cloud)
 
-        new_obj.lines = prev_cloud.lines
+        # update hyperparams
+        new_obj.density_func = density_func
+        new_obj.power_spec = power_spec
+        new_obj.inducing_obj = inducing_obj
+        new_obj.abundances_dict = abundances_dict
 
         # Cycle through observed lines
         for line_id in new_obj.lines:
@@ -570,7 +562,7 @@ class CloudProbObj(object):
         new_obj.set_prior_logprob()
         new_obj.set_inducing_cov_matrices()
         new_obj.set_inducing_logprob()
-        new_obj.zs = prev_cloud.zs
+
         new_obj.estimate_loglikelihood()
 
         new_obj.log_posteriorprob = (new_obj.log_priorprob
