@@ -3,7 +3,9 @@ import numpy as np
 
 
 class DensityFunc(object):
-    """
+    """ class DensityFunc
+
+        A base class to hold a (1d) mean density function.
     """
     def censored_grid(self, dists, critical_dens):
         censored_dens = self.__call__(dists)
@@ -12,7 +14,25 @@ class DensityFunc(object):
 
 
 class QuadraticDensityFunc(DensityFunc):
-    """
+    """ class QuadraticDensityFunc
+
+        A class to hold a 1D mean density function that is parametrised
+        as a 'quadratic lump', i.e.
+
+        rho(s) = { a (s - mid_dist)^2 + max_dens if |s - mid_dist| < half_width
+                 { 0  otherwise
+
+        Attributes
+        ----------
+        mid_dist : float
+            The distance of the mid point of the 'lump'
+        max_dens : float
+            The maximum density in the lump
+        half_width : float
+            The half width of the lump
+        a : float
+            The quadratic coefficiant, derived from max_dens and
+            half_width
     """
     def __init__(self, mid_dist, max_dens, width):
         self.mid_dist = mid_dist
