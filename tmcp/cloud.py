@@ -164,8 +164,6 @@ class CloudProbObj(object):
         log_likelihood: float
         mean_dict : dict
         cov_funcs : dict
-        inducing_cov_mats : dict
-        inducing_cov_mats_cho : dict
     """
 
     def __init__(self, density_func, power_spec, inducing_obj,
@@ -192,19 +190,9 @@ class CloudProbObj(object):
         # initialise empty dicts to hold means & cov mats
         self.mean_dict = {}
         self.cov_funcs = {}
-        self.inducing_cov_mats = {}
-        self.inducing_cov_mats_cho = {}
 
         # initialise cogs
         self.cogs = None
-
-    def __getattr__(self, attr):
-        """ __getattr__(attr)
-
-            Grab attributes from inducing_obj used in composition of
-            CloudProbObj.
-        """
-        return getattr(self.inducing_obj, attr)
 
     def set_inducing_cov_matrices(self):
         """ set_inducing_cov_matrices()
@@ -224,14 +212,14 @@ class CloudProbObj(object):
         for line_id in self.lines:
 
             # Fill in cov matrices
-            self.inducing_cov_mats[line_id] = self.cov_funcs[line_id](
-                                                    self.inducing_diff)
+            self.inducing_obj.inducing_cov_mats[line_id] = (
+                                self.cov_funcs[line_id](self.inducing_diff))
 
             # Get cholesky decompositions
             try:
-                self.inducing_cov_mats_cho[line_id] = cho_factor(
-                                               self.inducing_cov_mats[line_id],
-                                               check_finite=False)
+                self.inducing_obj.inducing_cov_mats_cho[line_id] = cho_factor(
+                                self.inducing_obj.inducing_cov_mats[line_id],
+                                check_finite=False)
             except np.linalg.linalg.LinAlgError or ValueError:
                 raise
 
@@ -274,8 +262,8 @@ class CloudProbObj(object):
 
             # calculate prob
 
-            Q = cho_solve(self.inducing_cov_mats_cho[line_id],
-                          self.inducing_values[line_id]
+            Q = cho_solve(self.inducing_obj.inducing_cov_mats_cho[line_id],
+                          self.inducing_obj.inducing_values[line_id]
                           - self.mean_dict[line_id])
 
         # Combine across lines to get total prob
@@ -283,8 +271,8 @@ class CloudProbObj(object):
 
             self.log_inducingprob += (
                 - np.sum(np.log(np.diag(
-                                    self.inducing_cov_mats_cho[line_id][0])))
-                - np.dot(self.inducing_dict[line_id]
+                        self.inducing_obj.inducing_cov_mats_cho[line_id][0])))
+                - np.dot(self.inducing_obj.inducing_values[line_id]
                          - self.mean_dict[line_id], Q)/2.)
 
     def set_zs(self, zs=None):
@@ -337,12 +325,13 @@ class CloudProbObj(object):
                             self.data_dict[lineid].x_coord[indices])
                 covar_vec = self.cov_funcs[line_id](diff)
 
-                Q = cho_solve(self.inducing_cov_mats_cho[line_id], covar_vec)
+                Q = cho_solve(self.inducing_obj.inducing_cov_mats_cho[line_id],
+                              covar_vec)
 
                 mean_cond = (self.mean_dict[line_id]
-                             + np.dot(Q,
-                                      self.inducing_values[line_id]
-                                      - self.mean_dict[line_id]))
+                             + np.dot(
+                                Q, self.inducing_obj.inducing_values[line_id]
+                                - self.mean_dict[line_id]))
                 cov_cond = cov_marg - np.dot(Q, covar_vec)
 
                 # use z and mean and sd to get col dens
@@ -361,11 +350,11 @@ class CloudProbObj(object):
     @classmethod
     def new_cloud(cls, density_func, power_spec, inducing_obj, abundances_dict,
                   data_dict, dist_array, nz=10):
-        """ new_cloud(density_func, power_spec, inducing_obj, 
+        """ new_cloud(density_func, power_spec, inducing_obj,
                       abundances_dict, data_dict, dist_array, nz=10)
 
             A factory function to build a new CloudProbObj instance,
-            including initially setting probabilities, covariance 
+            including initially setting probabilities, covariance
             matrices, etc.
 
             Parameters
@@ -410,8 +399,8 @@ class CloudProbObj(object):
                                                 new_obj.dist_array, cov_values)
 
             # Set inducing values to initially match mean
-            new_obj.inducing_values[line_id] = (np.zeros(new_obj.nu)
-                                                + new_obj.mean_dict[line_id])
+            new_obj.inducing_obj.inducing_values[line_id] = (
+                            np.zeros(new_obj.nu) + new_obj.mean_dict[line_id])
 
         # Get CoGs
         line_dict = {}
@@ -476,9 +465,6 @@ class CloudProbObj(object):
 
         new_obj.log_priorprob = prev_cloud.log_priorprob
         new_obj.log_inducingprob = prev_cloud.log_inducingprob
-
-        new_obj.inducing_cov_mats = prev_cloud.inducing_cov_mats
-        new_obj.inducing_cov_mats_cho = prev_cloud.inducing_cov_mats_cho
 
         # get new likelihood
         new_obj.set_zs(zs)
