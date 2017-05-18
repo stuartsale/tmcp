@@ -216,7 +216,7 @@ class CloudProbObj(object):
         for k, v in self.__dict__.items():
             if k is not "data_dict":
                 setattr(result, k, cp.deepcopy(v, memo))
-        result.data = self.data
+        result.data_dict = self.data_dict
         return result
 
     def set_inducing_cov_matrices(self):
