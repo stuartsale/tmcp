@@ -1,3 +1,4 @@
+from astropy.io import fits
 import copy as cp
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
@@ -35,6 +36,48 @@ class CloudDataObj(object):
         if len(self.data_array.shape) != 2:
             raise ValueError("Data image is not 2d")
         self.shape = self.data_array.shape
+
+    @classmethod
+    def from_fits(cls, species, line, data_file, error_file):
+        """ from_fits(species, line, data_file, error_file)
+
+            Construct a CloudDataObj instanceusing fits files as inputs.
+
+            Parameters
+            ----------
+            species : str
+                The species of the line
+            line : int
+                The energy level of the line
+            data_file : str
+                The filename of the data file
+            error_file : str
+                The filename of the error file
+
+            Returns
+            -------
+            CloudDataObj
+                The instance produced from the fits files
+        """
+        data_hdu = fits.open(data_file)
+        data_array = data_hdu[-1].data
+
+        error_hdu = fits.open(error_file)
+        error_array = error_hdu[-1].data
+
+        if data_array.shape != error_array.shape:
+            raise IndexError("Shape of data and error arrays do not match")
+
+        x = np.arange(data_array.shape[0])
+        y = np.arange(data_array.shape[1])
+        X, Y = np.meshgrid(x, y)
+
+        data_wcs = wcs.WCS(data_hdu[-1].header)
+
+        data_x, data_y = data_wcs.wcs_pix2world(X, Y, 0)
+
+        return cls.__init__(species, line, data_x, data_y, data_array,
+                            error_array)
 
 
 class CloudInducingObj(object):
