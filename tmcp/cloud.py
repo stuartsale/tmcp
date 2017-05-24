@@ -185,6 +185,39 @@ class CloudInducingObj(object):
                        + np.power(y_pos - self.inducing_y, 2))
         return diff
 
+    @classmethod
+    def new_from_grid(cls, nx, ny, x_range, y_range):
+        """ new_from_grid(nx, ny, x_range, y_range)
+
+            Create a new CloudInducingObj instance that places
+            the inducing points on a regular nx x ny grid.
+
+            Parameters
+            ----------
+            nx : int
+                The length of the grid in the x direction (typically
+                RA or l)
+            ny : int
+                The length of the grid in the y direction (typically
+                DEC or b)
+            x_range : list
+                A length 2 list that gives the range of x-values that
+                the onservations span, in form [x_min, x_max]
+            y_range : list
+                A length 2 list that gives the range of y-values that
+                the onservations span, in form [y_min, y_max]
+        """
+        x_step = (x_range[1]-x_range[0]) / nx
+        y_step = (y_range[1]-y_range[0]) / ny
+
+        Xs = x_range[0] + x_step * (np.arange(nx) + 0.5)
+        Ys = y_range[0] + y_step * (np.arange(ny) + 0.5)
+
+        x_pos, y_pos = np.meshgrid(Xs, Ys)
+        x_pos = x_pos.flatten()
+        y_pos = y_pos.flatten()
+
+        return cls(x_pos, y_pos, np.zeros(x_pos.shape))
 
 class CloudProbObj(object):
     """ This class holds ...
