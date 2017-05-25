@@ -60,8 +60,6 @@ class ApmEssMh(object):
 
         self.mh_prop = mh_prop
 
-        self.chain = []
-
         # construct the data dict
 
         data_dict = {}
@@ -104,6 +102,21 @@ class ApmEssMh(object):
                                                     abundances_dict, data_dict,
                                                     dist_array)
 
+        # set up recarray to store chain
+
+        self.chain_cols = (self.last_cloud.density_func.param_names
+                           + self.last_cloud.power_spec.param_names
+                           + self.last_cloud.abundances_dict.keys())
+
+        for i in range(self.last_cloud.inducing_obj.nu):
+            self.chain_cols.append("u{0:d}".format(i))
+
+        self.hyper_chain = np.rec.fromarrays(np.zeros([len(self.chain_cols),
+                                                       floor((self.iterations
+                                                              - self.burnin)
+                                                             / self.thin)]),
+                                             names=self.chain_cols)
+
     def iterate(self):
         """ iterate()
 
@@ -118,10 +131,32 @@ class ApmEssMh(object):
 
             # Add to chains
             if i > self.burnin and i % thin == 0:
-                self.store_to_chain()
+                self.store_to_chain((i-self.burnin)/self.thin)
 
-    def store_to_chain(self):
+    def store_to_chain(self, row):
         """ store_to_chain()
 
+            Parameters
+            ----------
+            row : int
+                The row in the chain to write to
+
+            Returns
+            -------
+            None
         """
-        pass
+        density_params = self.last_cloud.density_func.param_dict()
+        for field in density_params:
+            self.hyper_chain[row][field] = density_params[field]
+
+        ps_params = self.last_cloud.power_spec.param_dict()
+        for field in ps_params:
+            self.hyper_chain[row][field] = ps_params[field]
+
+        for field in self.last_cloud.abundance_dict:
+            self.hyper_chain[row][field] = (
+                                        self.last_cloud.abundance_dict[field])
+
+        for n in range(self.last_cloud.inducing_obj.nu):
+            self.hyper_chain[row]["u{0:d}".format(n)] = (
+                    self.last_cloud.inducing_obj.inducing_values[n])
