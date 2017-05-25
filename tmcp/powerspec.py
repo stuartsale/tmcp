@@ -5,20 +5,53 @@ import scipy.special
 
 
 class IsmPowerspec(object):
-    pass
+    __metaclass__ = abc.ABCMeta
+
+    @abc.abstractmethod
+    def PS(self):
+        return
+
+    @abc.abstractmethod
+    def project(self):
+        return
+
+    @abc.abstractmethod
+    def param_dict(self):
+        return
 
 
 class SM14Powerspec(IsmPowerspec):
     """ This class holds power-spectra of the form described in
         Sale & Magorrian (2014), i.e.:
 
-        p(k) = R(k) * (|k| L)^{2 \omega} / (1 + (|k| L)^2)^{\gamma/2+\omega} .
+        p(k) = R * (|k| L)^{2 \omega} / (1 + (|k| L)^2)^{\gamma/2+\omega} .
 
         Such power take a Kolmogorov-like form: at k>>1/L
 
         p(k) \propto |k|^{-\gamma} ,
 
         but are tapered towards 0 for k<<1/L
+
+        Attributes
+        ----------
+        gamma : float
+            The power law slope of the power-spectrum at
+            |k| >> 1/L.
+            Must be greater than 0.
+        omega : float
+            Sets the form of the tapering/rollover of the
+            power spectrum at |k| << 1/L .
+            Must be greater than 0.
+        L : float
+            The scale corresponding to the roll-over of the
+            power-spectrum.
+            In a turbulent conext this corresponds to the outer
+            scale, i.e. the scale of energy injection.
+            All resulting distance and wavenumbers produced in this
+            class will be expressed as multiples of L or 1/L
+            respectively.
+        R : float
+            A normalistaion constant
     """
 
     def __init__(self, gamma=11/3, omega=0, L=1.):
@@ -117,3 +150,22 @@ class SM14Powerspec(IsmPowerspec):
                         * (k_array_1D[1]-k_array_1D[0])/4)
 
         return k_array_1D, projected_ps, fourier_dens
+
+    def param_dict(self):
+        """ param_dict()
+
+            Returns (only) the paramaters needed to uniquely specify
+            the power spectrum.
+            For SM14Powerspec these parameters are:
+            gamma, omega, L.
+
+            Parameters
+            ----------
+            None
+
+            Returns
+            -------
+            dict
+                The parameters that specify the mean function.
+        """        
+        return {"gamma": self.gamma, "omega", self.omega, "L", self.L}

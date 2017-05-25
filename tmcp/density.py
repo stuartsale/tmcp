@@ -7,10 +7,24 @@ class DensityFunc(object):
 
         A base class to hold a (1d) mean density function.
     """
+    __metaclass__ = abc.ABCMeta
+
     def censored_grid(self, dists, critical_dens):
         censored_dens = self.__call__(dists)
         censored_dens[censored_dens < critical_dens] = 0.
         return censored_dens
+
+    @abc.abstractmethod
+    def limited_mean(self):
+        return
+
+    @abc.abstractmethod
+    def MH_propose(self):
+        return
+
+    @abc.abstractmethod
+    def param_dict(self):
+        return
 
 
 class QuadraticDensityFunc(DensityFunc):
@@ -87,3 +101,24 @@ class QuadraticDensityFunc(DensityFunc):
         mean_dens = (2.*self.half_width*self.max_dens
                      + 2.*self.a*pow(self.half_width, 3)/3.)
         return mean_dens
+
+    def param_dict(self):
+        """ param_dict()
+
+            Returns (only) the paramaters needed to uniquely specify
+            the density function.
+            For QuadraticDensityFunc these parameters are:
+            mid_dist, max_dens, half_width.
+
+            Parameters
+            ----------
+            None
+
+            Returns
+            -------
+            dict
+                The parameters that specify the mean function.
+        """
+
+        return {"mid_dist": self.mid_dist, "max_dens": self.max_dens,
+                "half_width": self.half_width}
