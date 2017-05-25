@@ -52,7 +52,12 @@ class SM14Powerspec(IsmPowerspec):
             respectively.
         R : float
             A normalistaion constant
+        param_names : list
+            The names of the parameters required to uniquely define the 
+            instance
     """
+
+    self.param_names = ["gamma", "omega", "L"]
 
     def __init__(self, gamma=11/3, omega=0, L=1.):
         """ __init__(gamma=11/3, omega=0, L=1.)

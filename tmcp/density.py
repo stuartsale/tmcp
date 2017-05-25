@@ -47,7 +47,13 @@ class QuadraticDensityFunc(DensityFunc):
         a : float
             The quadratic coefficiant, derived from max_dens and
             half_width
+        param_names : list
+            The names of the parameters required to uniquely define the 
+            instance
     """
+
+    self.param_names = ["mid_dist", "max_dens", "half_width"]
+    
     def __init__(self, mid_dist, max_dens, width):
         self.mid_dist = mid_dist
         self.max_dens = max_dens
