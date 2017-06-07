@@ -1,3 +1,22 @@
+########################################################################
+# Copyright 2017 Stuart Sale
+#
+# This file is part of tmcp.
+#
+# tmcp is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this tmcp.  If not, see <http://www.gnu.org/licenses/>.
+########################################################################
+
 import collections
 import numpy as np
 
@@ -48,12 +67,12 @@ class QuadraticDensityFunc(DensityFunc):
             The quadratic coefficiant, derived from max_dens and
             half_width
         param_names : list
-            The names of the parameters required to uniquely define the 
+            The names of the parameters required to uniquely define the
             instance
     """
 
     self.param_names = ["mid_dist", "max_dens", "half_width"]
-    
+
     def __init__(self, mid_dist, max_dens, width):
         self.mid_dist = mid_dist
         self.max_dens = max_dens

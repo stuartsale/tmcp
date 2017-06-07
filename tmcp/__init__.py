@@ -1,3 +1,22 @@
+########################################################################
+# Copyright 2017 Stuart Sale
+#
+# This file is part of tmcp.
+#
+# tmcp is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this tmcp.  If not, see <http://www.gnu.org/licenses/>.
+########################################################################
+
 import copy
 import numpy as np
 
@@ -29,6 +48,8 @@ class ApmEssMh(object):
             The size of the (Gaussian) Metropolis proposal distributions
         hyper_chain : list
             The MCMC chain for the hyperparameters
+        run : bool
+            Indicates if MCMC has been run
     """
 
     def __init__(self, data_dict_in, mh_prop, density_func=None,
@@ -59,6 +80,8 @@ class ApmEssMh(object):
         self.burnin = burnin
 
         self.mh_prop = mh_prop
+
+        self.run = False
 
         # construct the data dict
 
@@ -133,6 +156,8 @@ class ApmEssMh(object):
             if i > self.burnin and i % thin == 0:
                 self.store_to_chain((i-self.burnin)/self.thin)
 
+        self.run = True
+
     def store_to_chain(self, row):
         """ store_to_chain()
 
@@ -160,3 +185,23 @@ class ApmEssMh(object):
         for n in range(self.last_cloud.inducing_obj.nu):
             self.hyper_chain[row]["u{0:d}".format(n)] = (
                     self.last_cloud.inducing_obj.inducing_values[n])
+
+    def mean_sds(self):
+        """ mean_sds()
+
+            Calculate the means and sds of the chains
+
+            Parameters
+            ----------
+            None
+
+            Returns
+            -------
+            None
+        """
+        means = {}
+        sds = {}
+
+        for field in self.hyper_chain.dtype.names:
+            means[field] = np.mean(self.hyper_chain[field])
+            sds[field] = np.std(self.hyper_chain[field])
