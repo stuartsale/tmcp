@@ -17,9 +17,11 @@
 # along with this tmcp.  If not, see <http://www.gnu.org/licenses/>.
 ########################################################################
 
+import abc
 import copy
 import numpy as np
 
+import cogs
 import cloud
 import density
 import samplers
@@ -97,8 +99,8 @@ class ApmEssMh(object):
 
         # construct power spectrum
 
-        if power_spec is None:
-            power_spec = 
+#        if power_spec is None:
+#            power_spec = 
 
         # construct the inducing_obj
 

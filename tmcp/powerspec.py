@@ -18,6 +18,7 @@
 # along with this tmcp.  If not, see <http://www.gnu.org/licenses/>.
 ########################################################################
 from __future__ import print_function, division
+import abc
 import math
 import numpy as np
 import scipy.special
@@ -76,7 +77,7 @@ class SM14Powerspec(IsmPowerspec):
             instance
     """
 
-    self.param_names = ["gamma", "omega", "L"]
+    param_names = ["gamma", "omega", "L"]
 
     def __init__(self, gamma=11/3, omega=0, L=1.):
         """ __init__(gamma=11/3, omega=0, L=1.)
@@ -192,4 +193,4 @@ class SM14Powerspec(IsmPowerspec):
             dict
                 The parameters that specify the mean function.
         """        
-        return {"gamma": self.gamma, "omega", self.omega, "L", self.L}
+        return {"gamma": self.gamma, "omega": self.omega, "L": self.L}

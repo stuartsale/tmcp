@@ -17,6 +17,7 @@
 # along with this tmcp.  If not, see <http://www.gnu.org/licenses/>.
 ########################################################################
 
+import abc
 import collections
 import numpy as np
 
@@ -71,7 +72,7 @@ class QuadraticDensityFunc(DensityFunc):
             instance
     """
 
-    self.param_names = ["mid_dist", "max_dens", "half_width"]
+    param_names = ["mid_dist", "max_dens", "half_width"]
 
     def __init__(self, mid_dist, max_dens, width):
         self.mid_dist = mid_dist

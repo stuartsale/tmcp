@@ -25,7 +25,7 @@ from scipy.interpolate import InterpolatedUnivariateSpline
 
 from cogs import CoGsObj
 from density import QuadraticDensityFunc
-from powerspec import SM14_powerspec
+from powerspec import SM14Powerspec
 
 
 class CloudDataObj(object):
