@@ -91,6 +91,7 @@ class CoGsObj(object):
         self.cloud.comp.xoH2 = xoH2
         self.cloud.comp.xpH2 = xpH2
         self.cloud.comp.xHe = xHe
+        self.cloud.cfac = 2
 
         # add emitters
 
@@ -102,17 +103,25 @@ class CoGsObj(object):
         cols = np.linspace(min_col, max_col, steps)
 
         TB_dict = {}
+        emitter_trans = {}
         for emitter in emitter_lines:
             TB_dict[emitter] = {}
+            emitter_trans[emitter] = [np.array(emitter_lines[emitter])+1,
+                                      np.array(emitter_lines[emitter])]
             for line in emitter_lines[emitter]:
                 TB_dict[emitter][line] = np.zeros(steps)
+        print(emitter_trans)
+
 
         # Find values
 
         for i, col in enumerate(cols):
             self.cloud.colDen = math.pow(10, col)
             for emitter in emitter_lines:
-                lines_dicts = self.cloud.lineLum(emitter)
+                lines_dicts = self.cloud.lineLum(emitter, kt07=True,
+                                                 transition
+                                                 =emitter_trans[emitter],
+                                                 noClump=True)
                 for line in emitter_lines[emitter]:
                     TB_dict[emitter][line][i] = lines_dicts[line]["intTB"]
 
