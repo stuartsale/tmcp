@@ -45,7 +45,7 @@ class CoGsObj(object):
 
     def __init__(self, emitter_abundances, emitter_lines, nH=1e2,
                  sigmaNT=2.0e5, Tg=10., xoH2=0.1, xpH2=0.4, xHe=0.1,
-                 min_col=19, max_col=24, steps=10):
+                 cfac=None, Reff=None, min_col=19, max_col=24, steps=10):
         """ __init__(emitters, sigmaNT=2.0e5, Tg=10., xoH2=0.1, xpH2=0.4,
                  xHe=0.1)
 
@@ -72,6 +72,12 @@ class CoGsObj(object):
             relative abundance of para-H2
         xHe : float
             relative abundance of He
+        cfac : float
+            The clustering factor of the cloud
+        Reff : float
+            The effective radius of the cloud used when estimating
+            escape probabilities. Default is None, which implies
+            size set by column density and nH.
         min_col : float
             The minimum log10 of the column density of H nuclei in cm^-2
             to be used
@@ -91,7 +97,10 @@ class CoGsObj(object):
         self.cloud.comp.xoH2 = xoH2
         self.cloud.comp.xpH2 = xpH2
         self.cloud.comp.xHe = xHe
-        self.cloud.cfac = 2
+        if cfac is not None:
+            self.cloud.cfac = cfac
+        if Reff is not None:
+            self.cloud.Reff = Reff
 
         # add emitters
 
@@ -110,18 +119,15 @@ class CoGsObj(object):
                                       np.array(emitter_lines[emitter])]
             for line in emitter_lines[emitter]:
                 TB_dict[emitter][line] = np.zeros(steps)
-        print(emitter_trans)
-
 
         # Find values
 
         for i, col in enumerate(cols):
             self.cloud.colDen = math.pow(10, col)
             for emitter in emitter_lines:
-                lines_dicts = self.cloud.lineLum(emitter, kt07=True,
-                                                 transition
-                                                 =emitter_trans[emitter],
-                                                 noClump=True)
+                lines_dicts = self.cloud.lineLum(
+                                            emitter, kt07=True,
+                                            transition=emitter_trans[emitter])
                 for line in emitter_lines[emitter]:
                     TB_dict[emitter][line][i] = lines_dicts[line]["intTB"]
 
