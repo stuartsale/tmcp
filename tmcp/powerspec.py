@@ -117,9 +117,11 @@ class SM14Powerspec(IsmPowerspec):
 
         # Normalisation
 
-        norm_const = 4*math.pi * ((scipy.special.gamma((gamma-3)/2)
-                                   * scipy.special.gamma(1.5+omega))
-                                  / (2 * scipy.special.gamma(gamma/2+omega)))
+        norm_const = 4*math.pi * ((scipy.special.gamma((self.gamma-3)/2)
+                                   * scipy.special.gamma(1.5+self.omega))
+                                  / (2 * math.pow(self.L, 3)
+                                     * scipy.special.gamma(self.gamma/2
+                                                           + self.omega)))
         self.R = 1 / norm_const
 
     def PS(self, k):
