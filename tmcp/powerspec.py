@@ -81,9 +81,9 @@ class SM14Powerspec(IsmPowerspec):
             instance
     """
 
-    param_names = ["gamma", "omega", "L"]
+    param_names = ["gamma", "omega", "L", "var"]
 
-    def __init__(self, gamma=11/3, omega=0, L=1.):
+    def __init__(self, gamma=11/3, omega=0, L=1., var=1.):
         """ __init__(gamma=11/3, omega=0, L=1.)
 
             Initialise a Sale & Magorrian (2014) power spectrum object.
@@ -106,6 +106,9 @@ class SM14Powerspec(IsmPowerspec):
                 All resulting distance and wavenumbers produced in this
                 class will be expressed as multiples of L or 1/L
                 respectively.
+            var : float, optional
+                The variance implied by the power-spectrum, i.e. the
+                integral of the non-DC component over all wavenumbers
         """
 
         if gamma < 0:
@@ -118,6 +121,7 @@ class SM14Powerspec(IsmPowerspec):
         self.gamma = gamma
         self.omega = omega
         self.L = L
+        self.var = var
 
         # Normalisation
 
@@ -179,7 +183,7 @@ class SM14Powerspec(IsmPowerspec):
                 The wavenumbers for which the power-spectrum is needed
         """
 
-        ps = (self.R * np.power(k*self.L, 2*self.omega)
+        ps = (self.var * self.R * np.power(k*self.L, 2*self.omega)
               / np.power(1 + np.power(k*self.L, 2), self.gamma/2+self.omega))
         return ps
 
@@ -238,5 +242,6 @@ class SM14Powerspec(IsmPowerspec):
             -------
             dict
                 The parameters that specify the mean function.
-        """        
-        return {"gamma": self.gamma, "omega": self.omega, "L": self.L}
+        """
+        return {"gamma": self.gamma, "omega": self.omega, "L": self.L,
+                "var": self.var}
