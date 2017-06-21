@@ -38,13 +38,107 @@ class DensityFunc(object):
     def limited_mean(self):
         return
 
-    @abc.abstractmethod
-    def MH_propose(self):
-        return
+    def MH_propose(self, density_prop):
+        """ MH_propose(proposal_width)
+
+            Obtain a new QuadraticDensityFunc instance for use in
+            MH-MCMC samplers.
+
+            Parameters
+            ----------
+            proposal_width : dict
+                The width of the (Gaussian) proposal distibution
+                for each paramater
+
+            Returns
+            -------
+            new_density_func : DensityFunc
+                The new instance
+        """
+        new_density_func = cp.deepcopy(self)
+        for key in density_prop:
+            new_density_func.__dict__[key] = (prev_cloud.density_func
+                                              .__dict__[key]
+                                              + density_prop[key]
+                                              * np.random.randn())
+        new_density_func.a = (-new_density_func.max_dens
+                              / pow(new_density_func.half_width, 2))
+        return new_density_func
 
     @abc.abstractmethod
     def param_dict(self):
         return
+
+
+class UniformDensityFunc(DensityFunc):
+    """ A class to hold a 1D mean density function that is parametrised
+        as a 'uniform slab', i.e.
+
+        rho(s) = { rho_0    if |s - mid_dist| < half_width
+                 { 0        otherwise
+
+        Attributes
+        ----------
+        mid_dist : float
+            The distance of the mid point of the 'slab'
+        dens_0 : float
+            The density in the slab
+        half_width : float
+            The half width of the slab
+        param_names : list
+            The names of the parameters required to uniquely define the
+            instance
+    """
+
+    param_names = ["mid_dist", "dens_0", "half_width"]
+
+    def __init__(self, mid_dist, dens_0, width):
+        self.mid_dist = mid_dist
+        self.dens_0 = dens_0
+        self.half_width = width/2.
+
+    def __call__(self, dist):
+        if isinstance(dist, collections.Sequence):
+            dens = np.zeros(dist.shape)
+            dens[np.fabs(dist - self.mid_dist) <= self.half_width] = (
+                                                                self.dens_0)
+        else:
+            if abs(dist - self.mid_dist) <= self.half_width:
+                return self.dens_0
+            else:
+                return 0.
+
+    def limited_mean(self):
+        """ limited_mean()
+
+            Find the mean density in the region where density > 0
+
+            Returns
+            -------
+            mean density
+        """
+        return self.dens_0
+
+    def param_dict(self):
+        """ param_dict()
+
+            Returns (only) the paramaters needed to uniquely specify
+            the density function.
+            For QuadraticDensityFunc these parameters are:
+            mid_dist, max_dens, half_width.
+
+            Parameters
+            ----------
+            None
+
+            Returns
+            -------
+            dict
+                The parameters that specify the mean function.
+        """
+
+        return {"mid_dist": self.mid_dist, "dens_0": self.dens_0,
+                "half_width": self.half_width}
 
 
 class QuadraticDensityFunc(DensityFunc):
@@ -87,33 +181,6 @@ class QuadraticDensityFunc(DensityFunc):
         else:
             dens = max(0., self.a*pow(dist, 2) + self.max_dens)
         return dens
-
-    def MH_propose(self, proposal_width):
-        """ MH_propose(proposal_width)
-
-            Obtain a new QuadraticDensityFunc instance for use in
-            MH-MCMC samplers.
-
-            Parameters
-            ----------
-            proposal_width : dict
-                The width of the (Gaussian) proposal distibution
-                for each paramater
-
-            Returns
-            -------
-            QuadraticDensityFunc
-                The new instance
-        """
-        new_density_func = cp.deepcopy(self)
-        for key in density_prop:
-            new_density_func.__dict__[key] = (prev_cloud.density_func
-                                              .__dict__[key]
-                                              + density_prop[key]
-                                              * np.random.randn())
-        new_density_func.a = (-new_density_func.max_dens
-                              / pow(new_density_func.half_width, 2))
-        return new_density_func
 
     def limited_mean(self):
         """ limited_mean()
