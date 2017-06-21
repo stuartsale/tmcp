@@ -98,10 +98,11 @@ class UniformDensityFunc(DensityFunc):
         self.half_width = width/2.
 
     def __call__(self, dist):
-        if isinstance(dist, collections.Sequence):
+        if isinstance(dist, np.ndarray):
             dens = np.zeros(dist.shape)
             dens[np.fabs(dist - self.mid_dist) <= self.half_width] = (
                                                                 self.dens_0)
+            return dens
         else:
             if abs(dist - self.mid_dist) <= self.half_width:
                 return self.dens_0
@@ -139,6 +140,23 @@ class UniformDensityFunc(DensityFunc):
 
         return {"mid_dist": self.mid_dist, "dens_0": self.dens_0,
                 "half_width": self.half_width}
+
+    def integral(self):
+        """ integral()
+
+            Calculate the integral of mean density wrt distance, i.e.
+            mean column density.
+
+            Note that this function makes no attempt to respect/simplify
+            units - the result will be in [density unit] [distance unit],
+            thus units like cm^-3 pc are quite possible.
+
+            Returns
+            -------
+            integral :float
+                the integral of mean density wrt distance from 0 to infinity
+        """
+        return self.dens_0 * 2 * self.half_width
 
 
 class QuadraticDensityFunc(DensityFunc):
