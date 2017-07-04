@@ -39,7 +39,7 @@ class IsmPowerspec(object):
     def param_dict(self):
         return
 
-    @abs.abstractmethod
+    @abc.abstractmethod
     def fill_correction(self):
         return
 
@@ -187,7 +187,7 @@ class SM14Powerspec(IsmPowerspec):
               / np.power(1 + np.power(k*self.L, 2), self.gamma/2+self.omega))
         return ps
 
-    def project(self, dist_array, dens_array):
+    def project(self, dist_array, dens_func):
         """ project(dens_array, dist_array)
 
             project the power-spectrum along an axis, given the desity
@@ -206,15 +206,11 @@ class SM14Powerspec(IsmPowerspec):
             -----
             This function uses an FFT transform.
         """
-        if dist_array.shape != dens_array.shape:
-            raise ValueError("dist_array and dens_array have different "
-                             "shapes.")
-
-        fourier_dens = np.fft.rfft(dens_array)
-        fourier_dens2 = (fourier_dens*fourier_dens.conj()).real
-
-        k_array_1D = np.fft.rfftfreq(dens_array.size,
+        k_array_1D = np.fft.rfftfreq(dist_array.size,
                                      (dist_array[1]-dist_array[0]))
+
+        fourier_dens2 = dens_func.fourier2(k_array_1D)
+
         kx, ky = np.meshgrid(k_array_1D, k_array_1D)
         k_array = np.sqrt(np.power(kx, 2) + np.power(ky, 2))
 
@@ -224,7 +220,7 @@ class SM14Powerspec(IsmPowerspec):
                          + 2*np.sum(ps[:, 1:]*fourier_dens2[1:], axis=1))
                         * (k_array_1D[1]-k_array_1D[0])/4)
 
-        return k_array_1D, projected_ps, fourier_dens
+        return k_array_1D, projected_ps, fourier_dens2
 
     def param_dict(self):
         """ param_dict()

@@ -69,6 +69,13 @@ class DensityFunc(object):
     def param_dict(self):
         return
 
+    @abc.abstractmethod
+    def integral(self):
+        return
+
+    @abc.abstractmethod
+    def fourier2(self):
+        return
 
 class UniformDensityFunc(DensityFunc):
     """ A class to hold a 1D mean density function that is parametrised
@@ -158,6 +165,28 @@ class UniformDensityFunc(DensityFunc):
         """
         return self.dens_0 * 2 * self.half_width
 
+    def fourier2(self, k_array):
+        """ fourier2(k_array)
+
+            Return the magnitude squared of the fourier transform
+            of the density function at the wavenumbers given by k_array.
+            i.e. |FT(dens_func)|^2
+
+            Parameters
+            ----------
+            k_array : ndarray
+                The wavenumber array
+
+            Returns
+            -------
+            f2_array : ndarray
+                The value of the magnitude squared of the fourier 
+                transform of the density function at the wavenumber
+                given in k_array
+        """
+        f2_array = pow(self.dens_0 * np.sinc(k_array*self.half_width)
+                       * 2 * self.half_width, 2)
+        return f2_array
 
 class QuadraticDensityFunc(DensityFunc):
     """ class QuadraticDensityFunc
