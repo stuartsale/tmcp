@@ -163,14 +163,58 @@ class SM14Powerspec(IsmPowerspec):
         """
         # factor of 1.25 is a fudge for cube -> sphere approximation
         kmax = cube_half_length * 1.25
-        fill_correction = (scipy.special.hyp2f1(1.5 + self.omega,
-                                                self.gamma/2 + self.omega,
-                                                2.5 + self.omega,
-                                                -pow(self.L * kmax, 2))
-                           * pow(kmax, 3) * pow(self.L*kmax, 2*self.omega)
-                           / (3 + 2*self.omega)) * 4 * math.pi
-        fill_correction /= self.norm_const()
+        fill_correction = self.inner_integral(kmax) / self.var
         return fill_correction
+
+    def inner_integral(self, kmax):
+        """ inner_integral(kmax)
+
+            Determines the spherical integral of the power spectrum
+            from a radius 0 to kmax.
+
+            Attributes
+            ----------
+            kmax : float
+                the maximum wavenumber
+
+            Returns
+            -------
+            integral : float
+                The spherical integral of the power spectum from 0
+                to kmax
+        """
+        integral = (scipy.special.hyp2f1(1.5 + self.omega,
+                                         self.gamma/2 + self.omega,
+                                         2.5 + self.omega,
+                                         -pow(self.L * kmax, 2))
+                    * pow(kmax, 3) * pow(self.L*kmax, 2*self.omega)
+                    / (3 + 2*self.omega)) * 4 * math.pi * self.var
+        return integral * self.R
+
+    def outer_integral(self, kmin):
+        """ outer_integral(kmin)
+
+            Determines the spherical integral of the power spectrum
+            from a radius kmin to infinity.
+
+            Attributes
+            ----------
+            kmin : float
+                the minimum wavenumber
+
+            Returns
+            -------
+            integral : float
+                The spherical integral of the power spectum from kmin
+                to infinity
+        """
+        integral = (scipy.special.hyp2f1(self.gamma/2 - 1.5,
+                                         self.gamma/2 + self.omega,
+                                         self.gamma/2 - 0.5,
+                                         -pow(kmin*self.L, -2))
+                    * pow(kmin, 3) * pow(kmin*self.L, -self.gamma)
+                    / (self.gamma - 3)) * 4 * math.pi * self.var
+        return integral * self.R
 
     def PS(self, k):
         """ PS(k)

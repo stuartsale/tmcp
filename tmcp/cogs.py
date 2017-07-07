@@ -47,7 +47,7 @@ class CoGsObj(object):
     """
 
     def __init__(self, emitter_abundances, emitter_lines, mean_nH=1e2,
-                 cfac=None, depth=100, Reff=1, sigmaNT=2.0e5, Tg=10.,
+                 ps=None, depth=100, Reff=1, sigmaNT=2.0e5, Tg=10.,
                  xoH2=0.1, xpH2=0.4, xHe=0.1, min_col=19, max_col=24,
                  steps=11):
         """ __init__(emitter_abundances, emitter_lines, mean_nH=1e2,
@@ -68,10 +68,8 @@ class CoGsObj(object):
             species.
         mean_nH : float
             The mean volume density of H nuclei in cm^-3
-        cfac : float
-            The clustering factor of the cloud. If Reff is set, this is
-            the clustering value *inside* that radius and so will be lower
-            than the value for the entire cloud
+        ps : IsmPowerspec or derived
+            The power spectrum within the cloud.
         depth : float
             The depth of the cloud along the line of sight.
             Measured in parsecs.
@@ -108,10 +106,14 @@ class CoGsObj(object):
         self.cloud.comp.xoH2 = xoH2
         self.cloud.comp.xpH2 = xpH2
         self.cloud.comp.xHe = xHe
-        if cfac is not None:
-            self.cloud.cfac = cfac
+
         if Reff is not None:
             self.cloud.Reff = Reff
+        else:
+            self.cloud.Reff = depth
+
+        if ps is not None:
+            var_R = ps.outer_integral(1./self.cloud.Reff)
 
         self.depth = depth
 
@@ -138,6 +140,7 @@ class CoGsObj(object):
         for i, col in enumerate(cols):
             self.cloud.colDen = math.pow(10, col)
             self.cloud.nH = self.cloud.colDen / (self.depth * parsec)
+            self.cloud.cfac = var_R/pow(self.cloud.nH, 2) + 1.
             for emitter in emitter_lines:
                 lines_dicts = self.cloud.lineLum(
                                             emitter, kt07=True,
