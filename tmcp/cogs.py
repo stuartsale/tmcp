@@ -22,6 +22,9 @@ import despotic as dp
 import math
 import numpy as np
 from scipy.interpolate import InterpolatedUnivariateSpline
+import scipy.constants as physcons
+
+parsec = physcons.parsec*100.  # in cm
 
 
 class CoGsObj(object):
@@ -43,11 +46,14 @@ class CoGsObj(object):
             give brightness temperature given some column density
     """
 
-    def __init__(self, emitter_abundances, emitter_lines, nH=1e2,
-                 sigmaNT=2.0e5, Tg=10., xoH2=0.1, xpH2=0.4, xHe=0.1,
-                 cfac=None, Reff=None, min_col=19, max_col=24, steps=10):
-        """ __init__(emitters, sigmaNT=2.0e5, Tg=10., xoH2=0.1, xpH2=0.4,
-                 xHe=0.1)
+    def __init__(self, emitter_abundances, emitter_lines, mean_nH=1e2,
+                 cfac=None, depth=100, Reff=1, sigmaNT=2.0e5, Tg=10.,
+                 xoH2=0.1, xpH2=0.4, xHe=0.1, min_col=19, max_col=24,
+                 steps=11):
+        """ __init__(emitter_abundances, emitter_lines, mean_nH=1e2,
+                     cfac=None, depth=100, Reff=None, sigmaNT=2.0e5, Tg=10.,
+                     xoH2=0.1, xpH2=0.4, xHe=0.1, min_col=19, max_col=24,
+                     steps=11)
 
         Initialise a CoGObj
 
@@ -60,8 +66,19 @@ class CoGsObj(object):
             A dictionary whose keys are species name strings and whose
             values are lists of lines needed (ordered by freq for each
             species.
-        nH : float
-            The volume density of H nuclei in cm^-3
+        mean_nH : float
+            The mean volume density of H nuclei in cm^-3
+        cfac : float
+            The clustering factor of the cloud. If Reff is set, this is
+            the clustering value *inside* that radius and so will be lower
+            than the value for the entire cloud
+        depth : float
+            The depth of the cloud along the line of sight.
+            Measured in parsecs.
+        Reff : float
+            The effective radius of the cloud used when estimating
+            escape probabilities. Default is None, which implies
+            size set by column density and nH.
         sigmaNT : float
             Non-thermal velocity dispersion
         Tg : float
@@ -72,12 +89,6 @@ class CoGsObj(object):
             relative abundance of para-H2
         xHe : float
             relative abundance of He
-        cfac : float
-            The clustering factor of the cloud
-        Reff : float
-            The effective radius of the cloud used when estimating
-            escape probabilities. Default is None, which implies
-            size set by column density and nH.
         min_col : float
             The minimum log10 of the column density of H nuclei in cm^-2
             to be used
@@ -91,7 +102,7 @@ class CoGsObj(object):
         # setup cloud
 
         self.cloud = dp.cloud()
-        self.cloud.nH = nH
+        self.cloud.nH = mean_nH
         self.cloud.sigmaNT = sigmaNT
         self.cloud.Tg = Tg
         self.cloud.comp.xoH2 = xoH2
@@ -101,6 +112,8 @@ class CoGsObj(object):
             self.cloud.cfac = cfac
         if Reff is not None:
             self.cloud.Reff = Reff
+
+        self.depth = depth
 
         # add emitters
 
@@ -124,6 +137,7 @@ class CoGsObj(object):
 
         for i, col in enumerate(cols):
             self.cloud.colDen = math.pow(10, col)
+            self.cloud.nH = self.cloud.colDen / (self.depth * parsec)
             for emitter in emitter_lines:
                 lines_dicts = self.cloud.lineLum(
                                             emitter, kt07=True,
