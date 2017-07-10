@@ -24,6 +24,8 @@ import numpy as np
 from scipy.interpolate import InterpolatedUnivariateSpline
 import scipy.constants as physcons
 
+from . import density, powerspec
+
 parsec = physcons.parsec*100.  # in cm
 
 
@@ -46,10 +48,9 @@ class CoGsObj(object):
             give brightness temperature given some column density
     """
 
-    def __init__(self, emitter_abundances, emitter_lines, mean_nH=1e2,
-                 ps=None, depth=100, Reff=1, sigmaNT=2.0e5, Tg=10.,
-                 xoH2=0.1, xpH2=0.4, xHe=0.1, min_col=19, max_col=24,
-                 steps=11):
+    def __init__(self, emitter_abundances, emitter_lines, dens_func, ps,
+                 Reff=1., sigmaNT=2.0e5, Tg=10., xoH2=0.1, xpH2=0.4, xHe=0.1,
+                 min_col=19, max_col=24, steps=11):
         """ __init__(emitter_abundances, emitter_lines, mean_nH=1e2,
                      cfac=None, depth=100, Reff=None, sigmaNT=2.0e5, Tg=10.,
                      xoH2=0.1, xpH2=0.4, xHe=0.1, min_col=19, max_col=24,
@@ -66,13 +67,10 @@ class CoGsObj(object):
             A dictionary whose keys are species name strings and whose
             values are lists of lines needed (ordered by freq for each
             species.
-        mean_nH : float
-            The mean volume density of H nuclei in cm^-3
+        dens_func : DensityFunc or derived
+            The mean density function of the cloud
         ps : IsmPowerspec or derived
             The power spectrum within the cloud.
-        depth : float
-            The depth of the cloud along the line of sight.
-            Measured in parsecs.
         Reff : float
             The effective radius of the cloud used when estimating
             escape probabilities. Default is None, which implies
@@ -100,22 +98,39 @@ class CoGsObj(object):
         # setup cloud
 
         self.cloud = dp.cloud()
-        self.cloud.nH = mean_nH
+
+        # check dens_func and ps types
+        if not isinstance(dens_func, density.UniformDensityFunc):
+            raise NotImplementedError("Currently only implemented with "
+                                      "UniformDensityFunc density function "
+                                      "instances")
+        if not isinstance(ps, powerspec.SM14Powerspec):
+            raise NotImplementedError("Currently only implemented with"
+                                      "SM14Powerspec power-spectrum instances")
+
+        self.dens_func = dens_func
+        self.ps = ps
+
         self.cloud.sigmaNT = sigmaNT
         self.cloud.Tg = Tg
         self.cloud.comp.xoH2 = xoH2
         self.cloud.comp.xpH2 = xpH2
         self.cloud.comp.xHe = xHe
 
+        # Set some derived cloud params
+
+        self.cloud.nH = self.dens_func.dens_0
+        self.depth = self.dens_func.half_width * 2.
+        self.cloud.colDen = self.dens_func.integral() * parsec
+
         if Reff is not None:
             self.cloud.Reff = Reff
         else:
-            self.cloud.Reff = depth
+            self.cloud.Reff = self.depth
 
-        if ps is not None:
-            var_R = ps.outer_integral(1./self.cloud.Reff)
+        var_R = ps.outer_integral(1./self.cloud.Reff)
 
-        self.depth = depth
+        self.cloud.cfac = var_R/pow(self.cloud.nH, 2) + 1.
 
         # add emitters
 
@@ -140,7 +155,6 @@ class CoGsObj(object):
         for i, col in enumerate(cols):
             self.cloud.colDen = math.pow(10, col)
             self.cloud.nH = self.cloud.colDen / (self.depth * parsec)
-            self.cloud.cfac = var_R/pow(self.cloud.nH, 2) + 1.
             for emitter in emitter_lines:
                 lines_dicts = self.cloud.lineLum(
                                             emitter, kt07=True,
