@@ -184,7 +184,7 @@ class UniformDensityFunc(DensityFunc):
                 transform of the density function at the wavenumber
                 given in k_array
         """
-        f2_array = pow(self.dens_0 * np.sinc(k_array*self.half_width)
+        f2_array = pow( np.sinc(k_array*self.half_width)
                        * 2 * self.half_width, 2)
         return f2_array
 
