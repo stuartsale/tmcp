@@ -39,10 +39,6 @@ class IsmPowerspec(object):
     def param_dict(self):
         return
 
-    @abc.abstractmethod
-    def fill_correction(self):
-        return
-
 
 class SM14Powerspec(IsmPowerspec):
     """ This class holds power-spectra of the form described in
@@ -255,14 +251,18 @@ class SM14Powerspec(IsmPowerspec):
 
         fourier_dens2 = dens_func.fourier2(k_array_1D)
 
-        kx, ky = np.meshgrid(k_array_1D, k_array_1D)
-        k_array = np.sqrt(np.power(kx, 2) + np.power(ky, 2))
+        kx, kz = np.meshgrid(k_array_1D, k_array_1D)
+        k_array = np.sqrt(np.power(kx, 2) + np.power(kz, 2))
 
         ps = self.PS(k_array)
 
-        projected_ps = ((ps[:, 0]*fourier_dens2[0]
-                         + 2*np.sum(ps[:, 1:]*fourier_dens2[1:], axis=1))
-                        * (k_array_1D[1]-k_array_1D[0])/4)
+        # Bodge to account for very thick clouds
+        if dist_array[-1]/2<dens_func.half_width:
+            projected_ps = ps[:, 0]*np.pi*dens_func.half_width
+        else:
+            projected_ps = ((ps[:, 0]*fourier_dens2[0]
+                            + 2*np.sum(ps[:, 1:]*fourier_dens2[1:], axis=1))
+                            * (k_array_1D[1]-k_array_1D[0]))
 
         return k_array_1D, projected_ps, fourier_dens2
 
