@@ -51,10 +51,9 @@ class CoGsObj(object):
     def __init__(self, emitter_abundances, emitter_lines, dens_func, ps,
                  Reff=1., sigmaNT=2.0e5, Tg=10., xoH2=0.1, xpH2=0.4, xHe=0.1,
                  min_col=19, max_col=24, steps=11):
-        """ __init__(emitter_abundances, emitter_lines, mean_nH=1e2,
-                     cfac=None, depth=100, Reff=None, sigmaNT=2.0e5, Tg=10.,
-                     xoH2=0.1, xpH2=0.4, xHe=0.1, min_col=19, max_col=24,
-                     steps=11)
+        """ __init__(emitter_abundances, emitter_lines, dens_func, ps,
+                     Reff=None, sigmaNT=2.0e5, Tg=10., xoH2=0.1, xpH2=0.4,
+                     xHe=0.1, min_col=19, max_col=24, steps=11)
 
         Initialise a CoGObj
 
