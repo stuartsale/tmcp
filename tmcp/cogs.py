@@ -159,7 +159,9 @@ class CoGsObj(object):
                                             emitter, kt07=True,
                                             transition=emitter_trans[emitter])
                 for line in emitter_lines[emitter]:
-                    TB_dict[emitter][line][i] = lines_dicts[line]["intTB"]
+                    TB_dict[emitter][line][i] = (
+                            lines_dicts[emitter_lines[emitter].index(line)]
+                            ["intTB"])
 
         # Fit splines
 
