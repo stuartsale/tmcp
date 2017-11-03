@@ -15,7 +15,7 @@ parsec = physcons.parsec*100.  # in cm
 # ============================================================================
 
 
-class lrf_cloud(object):
+class LRFCloud(object):
     """ Contains a simulated LRF cloud that can be 'observed'
         in different lines.
 
