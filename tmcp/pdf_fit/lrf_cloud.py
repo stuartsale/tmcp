@@ -2,12 +2,15 @@
     simulated cloud
 """
 
+from __future__ import print_function, division
 import math
 import numpy as np
-from tmcp.density import UniformDensityFunc
 import scipy.constants as physcons
 
 import LRF_gen as lg
+from tmcp.density import UniformDensityFunc
+from tmcp.powerspec import SM14Powerspec
+from tmcp.cogs import CoGsObj
 
 
 parsec = physcons.parsec*100.  # in cm
@@ -82,10 +85,10 @@ class LRFCloud(object):
         self._images = {}
 
         # CoG
-        self.ps = powerspec.SM14Powerspec(L=L, var=variance)
-        self.CoG = cogs.CoGsObj(abuns, lines, self.dens_func, self.ps, Tg=Tg,
-                                min_col=20, max_col=24, steps=20,
-                                Reff=L/(2*math.pi))
+        self.ps = SM14Powerspec(L=outer_L, var=self.variance)
+        self.CoG = CoGsObj(abuns, lines, self.dens_func, self.ps, Tg=Tg,
+                           min_col=20, max_col=24, steps=20,
+                           Reff=outer_L/(2*math.pi))
 
         if verbose:
             print("cloud cfac:", CoG.cloud.cfac)
@@ -94,7 +97,7 @@ class LRFCloud(object):
         outer = self.outer_L / (self.cube_half_length * self.pixel_scale)
 
         dens_field = lg.LRF_cube(self.cube_power, 1., self.ps.gamma,
-                                 "FFT", omega=self.omega, outer=outer).cube
+                                 "FFT", omega=self.ps.omega, outer=outer).cube
 
         # Normalise field
         log_dens_field = np.log(dens_field)
@@ -115,10 +118,10 @@ class LRFCloud(object):
 
         # Get column density
         if (self.dens_func.half_width / self.pixel_scale
-                > self.half_cube_length):
+                > self.cube_half_length):
             raise AttributeError("Cube is not large enough")
 
-        depth_pixel = 2 * self.dens_func.half_width / self.pixel_scale
+        depth_pixel = int(2 * self.dens_func.half_width / self.pixel_scale)
         col_field = np.sum(dens_field[:, :, :depth_pixel],
                            axis=-1)[:cube_half_length, :cube_half_length]
         self.log_col_field = np.log10(col_field) + math.log10(parsec)
@@ -128,7 +131,6 @@ class LRFCloud(object):
             print("column clumping factor",
                   math.pow(np.std(col_field) / np.mean(col_field), 2) + 1)
 
-    @property
     def image(self, species, line):
         """ image(species, line)
 
@@ -150,7 +152,7 @@ class LRFCloud(object):
                 The image in the required band as brightness temperature
                 in K
         """
-        line_id = [species, line]
+        line_id = (species, line)
         if line_id in self._images:
             return self._images[line_id]
 

@@ -12,6 +12,8 @@ import numpy as np
 
 from lrf_cloud import LRFCloud
 
+outer_L = 64
+
 # ============================================================================
 
 
@@ -46,9 +48,9 @@ class SPSACloudFit(object):
     """
 
     def __init__(self, abuns, images, sim_cube_half_length=64,
-                 start_params={1000., 100., 50., 5., 12.}):
+                 start_params=[1000., 100., 50., 5., 12.]):
 
-        self.abuns = {}
+        self.abuns = abuns
 
         # get dict of lines
         self.lines = {}
@@ -117,15 +119,15 @@ class SPSACloudFit(object):
         """
         chi2_value = 0.
 
-        for image_id in images.keys():
+        for image_id in self.images.keys():
             comp_image = cloud.image(image_id[0], image_id[1])
 
             chi2_value += self.hists[image_id].chi2(comp_image)
 
         return chi2_value
 
-    def fit(self, max_iter=100, c_index=1./3., a=1, c=1):
-        """ fit(max_iter=100, c_index=1./3, a=1, c=1.)
+    def fit(self, max_iter=100, c_index=1./3., a=1, c=1, verbose=False):
+        """ fit(max_iter=100, c_index=1./3, a=1, c=1., verbose=False)
 
             Perform the SPSA fit.
 
@@ -147,18 +149,20 @@ class SPSACloudFit(object):
                 The value of a to use
             c : float, optional
                 The value of c to use
+            verbose : bool, optional
+                Controls whether info gets dumped to stdout
 
             Returns
             -------
             None
         """
 
-        n = 0
-        while n < max_iter:
+        n = 1
+        while n <= max_iter:
             perturb = self.rademacher_propose()
 
-            plus_params = self.params + c/pow(c, c_index) * pertub
-            minus_params = self.params - c/pow(c, c_index) * pertub
+            plus_params = self.params + c/pow(n, c_index) * perturb
+            minus_params = self.params - c/pow(n, c_index) * perturb
 
             plus_cloud = LRFCloud(self.sim_cube_half_length, plus_params[0],
                                   plus_params[1], plus_params[2],
@@ -169,13 +173,13 @@ class SPSACloudFit(object):
                                    minus_params[3], outer_L, minus_params[4],
                                    self.lines, self.abuns)
 
-            plus_chi2 = chi2(plus_cloud)
-            minus_chi2 = chi2(minus_cloud)
+            plus_chi2 = self.chi2(plus_cloud)
+            minus_chi2 = self.chi2(minus_cloud)
 
             # Note that, as perturbation is drawn from Rademacher dist,
             # 1/Delta_n_i = Delta_n_i
             self.params -= (a/n * (plus_chi2 - minus_chi2) * perturb
-                            / (2 * c/pow(c, c_index)))
+                            / (2 * c/pow(n, c_index)))
             n += 1
 
             if verbose:
@@ -225,5 +229,5 @@ class HistObj(object):
         hist2, bins2 = np.histogram(image2, self.bins, normed=True)
 
         chi2_value = np.sum(np.power((hist2[self.mask] - self.hist[self.mask])
-                                     / hist1[mask], 2))
+                                     / self.hist[self.mask], 2))
         return chi2_value
