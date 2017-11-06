@@ -9,6 +9,7 @@
 from __future__ import print_function, division
 import math
 import numpy as np
+from scipy.stats import ks_2samp
 
 from lrf_cloud import LRFCloud
 
@@ -70,12 +71,8 @@ class SPSACloudFit(object):
                 raise AttributeError("No {0} abundance supplied".format(
                                         species))
 
-        # Set images and prepare histograms for all
+        # Set images for all
         self.images = images
-        self.hists = {}
-
-        for line_id in self.images.keys():
-            self.hists[line_id] = HistObj(self.images[line_id])
 
         # Set initial params
         self.params = start_params
@@ -100,7 +97,7 @@ class SPSACloudFit(object):
         proposal = np.random.choice([-1, +1], size=5)
         return proposal
 
-    def chi2(self, cloud):
+    def dist(self, cloud):
         """ chi2(cloud)
 
             Calculate a chi2 distance between the simulated cloud and
@@ -117,16 +114,17 @@ class SPSACloudFit(object):
             chi2_value : float
                 The chi2 combined across images
         """
-        chi2_value = 0.
+        dist_value = 0.
 
         for image_id in self.images.keys():
-            comp_image = cloud.image(image_id[0], image_id[1])
+            comp_image = cloud.image(image_id[0], image_id[1]).flatten()
 
-            chi2_value += self.hists[image_id].chi2(comp_image)
+            dist_value += ks_2samp(self.images[image_id].flatten(),
+                                   comp_image)[0]
 
-        return chi2_value
+        return dist_value
 
-    def fit(self, max_iter=100, c_index=1./3., a=1, c=1,
+    def fit(self, max_iter=100, c_index=1./3., a=1, c=1, samples=1,
             lower_bounds=np.array([10., 1., 1., 1.1, 2.8]),
             upper_bounds=np.array([20000, 1000., 1000., np.inf, np.inf]),
             verbose=False):
@@ -181,21 +179,28 @@ class SPSACloudFit(object):
             minus_params = np.minimum(minus_params, upper_bounds)
             minus_params = np.maximum(minus_params, lower_bounds)
 
-            plus_cloud = LRFCloud(self.sim_cube_half_length, plus_params[0],
-                                  plus_params[1], plus_params[2],
-                                  plus_params[3], outer_L, plus_params[4],
-                                  self.lines, self.abuns)
-            minus_cloud = LRFCloud(self.sim_cube_half_length, minus_params[0],
-                                   minus_params[1], minus_params[2],
-                                   minus_params[3], outer_L, minus_params[4],
-                                   self.lines, self.abuns)
+            plus_dist = 0.
+            minus_dist = 0.
+            for s in range(samples):
+                plus_cloud = LRFCloud(self.sim_cube_half_length,
+                                      plus_params[0], plus_params[1],
+                                      plus_params[2], plus_params[3], outer_L,
+                                      plus_params[4], self.lines, self.abuns)
+                minus_cloud = LRFCloud(self.sim_cube_half_length,
+                                       minus_params[0], minus_params[1],
+                                       minus_params[2], minus_params[3],
+                                       outer_L, minus_params[4],
+                                       self.lines, self.abuns)
 
-            plus_chi2 = self.chi2(plus_cloud)
-            minus_chi2 = self.chi2(minus_cloud)
+                plus_dist += self.dist(plus_cloud)
+                minus_dist += self.dist(minus_cloud)
+
+            plus_dist /= samples
+            minus_dist /= samples
 
             # Note that, as perturbation is drawn from Rademacher dist,
             # 1/Delta_n_i = Delta_n_i
-            self.params -= (a/n * (plus_chi2 - minus_chi2) * perturb
+            self.params -= (a/n * (plus_dist - minus_dist) * perturb
                             / (2 * c/pow(n, c_index)))
 
             # Keep in bounds
@@ -205,51 +210,4 @@ class SPSACloudFit(object):
             n += 1
 
             if verbose:
-                print(n, self.params, plus_chi2, minus_chi2)
-
-
-class HistObj(object):
-    """ A class to hold a histogram of an image.
-
-        Parameters
-        ----------
-        image : ndarray
-            The image that we want a histogram of
-        bins, int, optional
-            The number of bins in the histogram
-
-        Attributes
-        ----------
-        hist : ndarray(float)
-            The normalised counts in each of the bins
-        bins : ndarray(float)
-            The bin edges, length is 1 more than the number of bins
-        mask : ndarray(bool)
-            A mask that only selects those bins with non-zero count
-    """
-
-    def __init__(self, image, bins=50):
-        self.hist, self.bins = np.histogram(image, bins, normed=True)
-
-        self.mask = (self.hist > 0.)
-
-    def chi2(self, image2):
-        """ chi2(self, image2)
-
-            Calculate the chi2 between the normed histograms of two images.
-
-            Parameters
-            ----------
-            image2: ndarray
-                The 'comparison' image
-
-            Returns
-            -------
-            chi2_value : float
-                The calculated chi2
-        """
-        hist2, bins2 = np.histogram(image2, self.bins, normed=True)
-
-        chi2_value = np.sum(np.power((hist2[self.mask] - self.hist[self.mask])
-                                     / self.hist[self.mask], 2))
-        return chi2_value
+                print(n, self.params, plus_dist, minus_dist)
