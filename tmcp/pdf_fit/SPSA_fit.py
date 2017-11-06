@@ -48,7 +48,7 @@ class SPSACloudFit(object):
     """
 
     def __init__(self, abuns, images, sim_cube_half_length=64,
-                 start_params=[1000., 100., 50., 5., 12.]):
+                 start_params=np.array([1000., 100., 50., 5., 12.])):
 
         self.abuns = abuns
 
@@ -126,8 +126,14 @@ class SPSACloudFit(object):
 
         return chi2_value
 
-    def fit(self, max_iter=100, c_index=1./3., a=1, c=1, verbose=False):
-        """ fit(max_iter=100, c_index=1./3, a=1, c=1., verbose=False)
+    def fit(self, max_iter=100, c_index=1./3., a=1, c=1,
+            lower_bounds=np.array([10., 1., 1., 1.1, 2.8]),
+            upper_bounds=np.array([20000, 1000., 1000., np.inf, np.inf]),
+            verbose=False):
+        """ fit(max_iter=100, c_index=1./3, a=1, c=1.,,
+            lower_bounds=np.array([10., 1., 1., 1.1, 2.8]),
+            upper_bounds=np.array([20000, 1000., 1000., np.inf, np.inf])
+            verbose=False)
 
             Perform the SPSA fit.
 
@@ -149,6 +155,10 @@ class SPSACloudFit(object):
                 The value of a to use
             c : float, optional
                 The value of c to use
+            lower_bounds : ndarray, optional
+                Lower limits on the parameters
+            upper_bound : ndarray, optional
+                Upper limits on teh parameters
             verbose : bool, optional
                 Controls whether info gets dumped to stdout
 
@@ -163,6 +173,13 @@ class SPSACloudFit(object):
 
             plus_params = self.params + c/pow(n, c_index) * perturb
             minus_params = self.params - c/pow(n, c_index) * perturb
+
+            # keep in bounds
+            plus_params = np.minimum(plus_params, upper_bounds)
+            plus_params = np.maximum(plus_params, lower_bounds)
+
+            minus_params = np.minimum(minus_params, upper_bounds)
+            minus_params = np.maximum(minus_params, lower_bounds)
 
             plus_cloud = LRFCloud(self.sim_cube_half_length, plus_params[0],
                                   plus_params[1], plus_params[2],
@@ -180,6 +197,11 @@ class SPSACloudFit(object):
             # 1/Delta_n_i = Delta_n_i
             self.params -= (a/n * (plus_chi2 - minus_chi2) * perturb
                             / (2 * c/pow(n, c_index)))
+
+            # Keep in bounds
+            self.params = np.minimum(self.params, upper_bounds)
+            self.params = np.maximum(self.params, lower_bounds)
+
             n += 1
 
             if verbose:
