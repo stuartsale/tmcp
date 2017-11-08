@@ -58,6 +58,7 @@ class BasicCloudPrior():
     def pdf(self, value):
         z = np.log(value - BasicCloudPrior.__lower_bound)
         prob = normpdf(z, BasicCloudPrior.__mu, BasicCloudPrior.__sigma)
+
         return prob
 
 
@@ -103,21 +104,29 @@ class CloudABC(Model):
         """ Use the LRFCloud class to generate synthetic fBM clouds
         """
         # Generate cloud
-        try:
-            cloud = LRFCloud(self.sim_cube_half_length, theta[0], theta[1],
-                             theta[2], theta[3], outer_L, theta[4], self.lines,
-                             self.abuns)
-
-            # Generate images
-            images = {}
-            for line_id in self.line_ids:
-                images[line_id] = cloud.image(line_id[0], line_id[1]).flatten()
-
-        except AttributeError:
+        if np.isnan(self.prior.pdf(theta)):
             images = {}
             for line_id in self.line_ids:
                 images[line_id] = (np.zeros(pow(self.sim_cube_half_length, 2))
                                    - np.inf)
+
+        else:
+            try:
+                cloud = LRFCloud(self.sim_cube_half_length, theta[0], theta[1],
+                                 theta[2], theta[3], outer_L, theta[4],
+                                 self.lines, self.abuns)
+
+                # Generate images
+                images = {}
+                for line_id in self.line_ids:
+                    images[line_id] = cloud.image(line_id[0],
+                                                  line_id[1]).flatten()
+
+            except AttributeError:
+                images = {}
+                for line_id in self.line_ids:
+                    images[line_id] = (np.zeros(pow(self.sim_cube_half_length,
+                                                    2)) - np.inf)
 
         return images
 
@@ -190,7 +199,7 @@ class ABCFit(object):
         if method == "pmc_abc":
             self.posterior_samples = pmc_abc(self.model, self.data,
                                              epsilon_0=epsilon,
-                                             min_samples=min_samples, steps=5,
+                                             min_samples=min_samples, steps=10,
                                              **kwarg)
         elif method == "basic_abc":
             self.posterior_samples = basic_abc(self.model, self.data,
