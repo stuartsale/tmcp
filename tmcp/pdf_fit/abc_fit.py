@@ -18,19 +18,47 @@ outer_L = 64
 # ============================================================================
 
 
-def basic_cloud_prior():
-    mean = np.array([1000., 100., 20., 8., 12.])
-    sd = np.array([500., 30., 20., 4., 4.])
-    lower_bound = np.array([100., 10., 5., 1., 3.])
+def normpdf(x, mu, sigma):
+    u = (x - mu) / sigma
+    y = (1 / (math.sqrt(2*math.pi) * sigma)) * np.exp(-u*u/2)
+    return np.prod(y)
 
-    mean_dash = mean - lower_bound
-    sigma2 = np.log(1 + np.power(sd/mean_dash, 2))
-    mu = np.log(mean_dash) - sigma2/2.
 
-    z = np.random.randn(5)
-    result = np.exp(mu + z * np.sqrt(sigma2)) + lower_bound
+class BasicCloudPrior():
+    """ A class containing a basic prior on the parameters of a cloud.
+        The applied prior is a shifted multivariate lognormal with
+        0 in the off diagonal elements of the covariance matrix.
 
-    return result
+        Parameters
+        ----------
+        None
+
+        Attributes
+        ----------
+        None
+    """
+    __mean = np.array([1000., 100., 20., 8., 12.])
+    __sd = np.array([500., 30., 20., 4., 4.])
+    __lower_bound = np.array([100., 10., 5., 1., 3.])
+
+    __mean_dash = __mean - __lower_bound
+    __sigma2 = np.log(1 + np.power(__sd/__mean_dash, 2))
+    __sigma = np.sqrt(__sigma2)
+    __mu = np.log(__mean_dash) - __sigma2/2.
+
+    def __init__(self):
+        pass
+
+    def rvs(self):
+        z = np.random.randn(5)
+        result = (np.exp(BasicCloudPrior.__mu + z * BasicCloudPrior.__sigma)
+                  + BasicCloudPrior.__lower_bound)
+        return result
+
+    def pdf(self, value):
+        z = np.log(value - BasicCloudPrior.__lower_bound)
+        prob = normpdf(z, BasicCloudPrior.__mu, BasicCloudPrior.__sigma)
+        return prob
 
 
 class CloudABC(Model):
@@ -68,7 +96,7 @@ class CloudABC(Model):
     def draw_theta(self):
         """ Apply a simple truncated normal prior on cloud params
         """
-        theta = self.prior()
+        theta = self.prior.rvs()
         return theta
 
     def generate_data(self, theta):
@@ -136,7 +164,7 @@ class ABCFit(object):
         self.model = CloudABC(self.sim_cube_half_length, self.lines,
                               self.abuns)
 
-        self.model.set_prior(basic_cloud_prior)
+        self.model.set_prior(BasicCloudPrior())
         self.model.set_data = self.data
 
     def fit(self, method="pmc_abc", epsilon=0.5, min_samples=100, **kwarg):
