@@ -87,11 +87,11 @@ class LRFCloud(object):
         # CoG
         self.ps = SM14Powerspec(L=outer_L, var=self.variance)
         self.CoG = CoGsObj(abuns, lines, self.dens_func, self.ps, Tg=Tg,
-                           min_col=20, max_col=24, steps=20,
+                           min_col=19, max_col=24, steps=11,
                            Reff=outer_L/(2*math.pi))
 
         if verbose:
-            print("cloud cfac:", CoG.cloud.cfac)
+            print("cloud cfac:", self.CoG.cloud.cfac)
 
         # LRF
         outer = self.outer_L / (self.cube_half_length * self.pixel_scale)
@@ -111,7 +111,7 @@ class LRFCloud(object):
         self.dens_field = np.exp(log_dens_field)
 
         if verbose:
-            print("mean density", np.mean(dens_field))
+            print("mean density", np.mean(self.dens_field))
             print("measured clumping factor",
                   math.pow(np.std(self.dens_field)
                            / np.mean(self.dens_field), 2) + 1)
@@ -122,12 +122,12 @@ class LRFCloud(object):
             raise AttributeError("Cube is not large enough")
 
         depth_pixel = int(2 * self.dens_func.half_width / self.pixel_scale)
-        col_field = np.sum(dens_field[:, :, :depth_pixel],
+        col_field = np.sum(self.dens_field[:, :, :depth_pixel],
                            axis=-1)[:cube_half_length, :cube_half_length]
         self.log_col_field = np.log10(col_field) + math.log10(parsec)
 
         if verbose:
-            print("mean column density", np.mean(log_col_field))
+            print("mean column density", np.mean(self.log_col_field))
             print("column clumping factor",
                   math.pow(np.std(col_field) / np.mean(col_field), 2) + 1)
 
