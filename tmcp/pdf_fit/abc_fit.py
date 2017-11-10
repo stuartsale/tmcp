@@ -13,7 +13,7 @@ from simpleabc import Model, basic_abc, pmc_abc
 
 from lrf_cloud import LRFCloud
 
-outer_L = 64
+outer_L = 1
 
 # ============================================================================
 
@@ -37,8 +37,8 @@ class BasicCloudPrior():
         ----------
         None
     """
-    __mean = np.array([1000., 100., 20., 8., 12.])
-    __sd = np.array([500., 30., 20., 4., 4.])
+    __mean = np.array([1000., 200., 50., 8., 8.])
+    __sd = np.array([500., 20., 50., 8., 8.])
     __lower_bound = np.array([100., 10., 5., 1., 3.])
 
     __mean_dash = __mean - __lower_bound
@@ -62,10 +62,13 @@ class BasicCloudPrior():
         return prob
 
 
-class CloudABC(Model):
+class CloudABCKS(Model):
     """ This class provides the ABC model to be fit to the data.
 
-        This class over-rides the Model class from simpleabc
+        This class over-rides the Model class from simpleabc.
+
+        The distance metric used in ABC is the mean KS-distance
+        across the different images.
 
         Here theta is the variable that holds the cloud parameters
         they are stored as:
@@ -149,6 +152,52 @@ class CloudABC(Model):
         return KS_sum / N
 
 
+class CloudABCMeans(CloudABCKS):
+    """ This class provides the ABC model to be fit to the data.
+
+        This class over-rides the Model class from simpleabc.
+
+        The distance metric used in ABC is mean absolute difference
+        between the observation means and simulation means done image
+        by image
+
+        Here theta is the variable that holds the cloud parameters
+        they are stored as:
+        [distance, mean_density, depth, cfac, Tg]
+
+        Parameters
+        ----------
+        sim_cube_half_length : int
+            The size of the simulated cubes
+        lines : dict
+            The lines for which images are available
+        abuns : dict
+            The abundances of the species for which we have images
+
+        Attributes
+        ----------
+    """
+    def summary_stats(self, data):
+        """ Simply pass the images - the distance method will
+            find KS distances
+        """
+        means = {}
+        for image_id in data.keys():
+            means[image_id] = np.nanmean(data[image_id])
+        return means
+
+    def distance_function(self, obs_stats, synth_stats):
+        """ Use the mean KS stat between images as the distance
+        """
+        N = 0
+        diff_sum = 0.
+        for image_id in obs_stats.keys():
+            diff_sum += abs(obs_stats[image_id] - synth_stats[image_id])
+            N += 1
+
+        return diff_sum / N
+
+
 class ABCFit(object):
     """ This is a class used to fit the parameters of a cloud
         based solely on the 1D pdf of it observations in some
@@ -170,8 +219,8 @@ class ABCFit(object):
 
         self.data = data
 
-        self.model = CloudABC(self.sim_cube_half_length, self.lines,
-                              self.abuns)
+        self.model = CloudABCMeans(self.sim_cube_half_length, self.lines,
+                                   self.abuns)
 
         self.model.set_prior(BasicCloudPrior())
         self.model.set_data = self.data
