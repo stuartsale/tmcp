@@ -50,13 +50,17 @@ class LRFCloud(object):
             If True, some information is dumped to stdout
         pixel_scale : float, optional
             The linear size of each pixel in pc
+        scale_ratio : float, optional
+            The ratio of the scale along the 3rd(z) axis relative to
+            the other two axes
 
         Attributes
         ----------
     """
 
     def __init__(self, cube_half_length, distance, mean_density, depth, cfac,
-                 outer_L, Tg, lines, abuns, pixel_scale=1, verbose=False):
+                 outer_L, Tg, lines, abuns, pixel_scale=1, scale_ratio=1.,
+                 verbose=False):
         # Check and set parameters
 
         self.cube_power = int(math.log(cube_half_length*2)/math.log(2))
@@ -69,7 +73,7 @@ class LRFCloud(object):
                                  .format(distance, mean_density, depth))
         else:
             self.dens_func = UniformDensityFunc(distance, mean_density,
-                                                depth/2.)
+                                                depth)
 
         if cfac >= 1:
             self.cfac = cfac
@@ -77,10 +81,12 @@ class LRFCloud(object):
             raise AttributeError("Supplied cfac: {0} is less than unity"
                                  .format(cfac))
         self.variance = pow(mean_density, 2)*(cfac-1)
+        self.log_var = math.log(cfac)
         self.outer_L = outer_L
 
         self.Tg = Tg
         self.pixel_scale = pixel_scale
+        self.scale_ratio = scale_ratio
 
         self._images = {}
 
@@ -96,35 +102,36 @@ class LRFCloud(object):
         # LRF
         outer = self.outer_L / (self.cube_half_length * self.pixel_scale)
 
-        dens_field = lg.LRF_cube(self.cube_power, 1., self.ps.gamma,
-                                 "FFT", omega=self.ps.omega, outer=outer).cube
+        dens_field = lg.LRF_cube(self.cube_power, math.sqrt(self.log_var),
+                                 self.ps.gamma, "FFT", omega=self.ps.omega,
+                                 outer=outer,
+                                 scale_ratio=self.scale_ratio).cube
 
-        # Normalise field
-        log_dens_field = np.log(dens_field)
-        log_dens_field = ((log_dens_field-np.mean(log_dens_field))
-                          / np.std(log_dens_field))
+        # Normalise field for mean
+        dens_field /= np.mean(dens_field)
 
-        # Impose mean & cfac
-        log_dens_field *= math.sqrt(math.log(self.cfac))
-        log_dens_field += (math.log(self.dens_func.dens_0)
-                           - math.log(self.cfac)/2.)
-        self.dens_field = np.exp(log_dens_field)
+        # Impose mean
+        self.dens_field = dens_field * self.dens_func.dens_0
 
         if verbose:
             print("mean density", np.mean(self.dens_field))
             print("measured clumping factor",
                   math.pow(np.std(self.dens_field)
-                           / np.mean(self.dens_field), 2) + 1)
+                           / np.mean(self.dens_field), 2) + 1,
+                  math.exp(np.var(np.log(dens_field))))
 
         # Get column density
-        if (self.dens_func.half_width / self.pixel_scale
+        if (self.dens_func.half_width / (self.pixel_scale * self.scale_ratio)
                 > self.cube_half_length):
             raise AttributeError("Cube is not large enough")
 
-        depth_pixel = int(2 * self.dens_func.half_width / self.pixel_scale)
+        depth_pixel = int(2 * self.dens_func.half_width
+                          / (self.pixel_scale * self.scale_ratio))
         col_field = np.sum(self.dens_field[:, :, :depth_pixel],
                            axis=-1)[:cube_half_length, :cube_half_length]
-        self.log_col_field = np.log10(col_field) + math.log10(parsec)
+        self.log_col_field = (np.log10(col_field)
+                              + math.log10(self.pixel_scale
+                                           * self.scale_ratio * parsec))
 
         if verbose:
             print("mean column density", np.mean(self.log_col_field))
