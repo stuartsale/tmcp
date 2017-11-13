@@ -13,8 +13,6 @@ from simpleabc import Model, basic_abc, pmc_abc
 
 from lrf_cloud import LRFCloud
 
-outer_L = 1
-
 # ============================================================================
 
 
@@ -76,20 +74,25 @@ class CloudABCKS(Model):
 
         Parameters
         ----------
-        sim_cube_half_length : int
-            The size of the simulated cubes
+        angular_width : float
+            The on-sky size of the cloud in degrees
         lines : dict
             The lines for which images are available
         abuns : dict
             The abundances of the species for which we have images
+        sim_cube_half_length : int, optional
+            The size of the simulated cubes
 
         Attributes
         ----------
     """
-    def __init__(self, sim_cube_half_length, lines, abuns):
+    def __init__(self, angular_width, lines, abuns, sim_cube_half_length=64,
+                 outer_L_scale=0.25):
         self.sim_cube_half_length = sim_cube_half_length
+        self.angular_width = angular_width
         self.lines = lines
         self.abuns = abuns
+        self.outer_L_scale = outer_L_scale
 
         # make list of line_ids
         self.line_ids = []
@@ -114,10 +117,12 @@ class CloudABCKS(Model):
                                    - np.inf)
 
         else:
+            outer_L = (self.outer_L_scale * theta[0]
+                       * math.tan(math.radians(self.angular_width)))
             try:
                 cloud = LRFCloud(self.sim_cube_half_length, theta[0], theta[1],
-                                 theta[2], theta[3], outer_L, theta[4],
-                                 self.lines, self.abuns)
+                                 theta[2], self.angular_width, theta[3],
+                                 outer_L, theta[4], self.lines, self.abuns)
 
                 # Generate images
                 images = {}
@@ -167,12 +172,14 @@ class CloudABCMeans(CloudABCKS):
 
         Parameters
         ----------
-        sim_cube_half_length : int
-            The size of the simulated cubes
+        angular_width : float
+            The on-sky size of the cloud in degrees
         lines : dict
             The lines for which images are available
         abuns : dict
             The abundances of the species for which we have images
+        sim_cube_half_length : int, optional
+            The size of the simulated cubes
 
         Attributes
         ----------
@@ -208,19 +215,29 @@ class ABCFit(object):
 
         Parameters
         ----------
+        angular_width : float
+            The on-sky size of the cloud in degrees
+        lines : dict
+            The lines for which images are available
+        abuns : dict
+            The abundances of the species for which we have images
+        sim_cube_half_length : int, optional
+            The size of the simulated cubes
 
         Attributes
         ----------
     """
-    def __init__(self, data, sim_cube_half_length, lines, abuns):
+    def __init__(self, data, angular_width, lines, abuns,
+                 sim_cube_half_length=64):
         self.sim_cube_half_length = sim_cube_half_length
+        self.angular_width = angular_width
         self.lines = lines
         self.abuns = abuns
 
         self.data = data
 
-        self.model = CloudABCMeans(self.sim_cube_half_length, self.lines,
-                                   self.abuns)
+        self.model = CloudABCMeans(self.angular_width, self.lines, self.abuns,
+                                   self.sim_cube_half_length)
 
         self.model.set_prior(BasicCloudPrior())
         self.model.set_data = self.data

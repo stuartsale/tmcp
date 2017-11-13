@@ -33,6 +33,8 @@ class LRFCloud(object):
             The mean gas density in cm^-3
         depth : float
             The depth of the cloud in pc
+        angular_width : float
+            The angular size of the cloud expressed in degrees
         cfac : float
             The clumping factor of the cloud, i.e. <n^2>/<n>^2 .
             Must be greater than 1.
@@ -48,18 +50,13 @@ class LRFCloud(object):
             in (species, abundance) pairs
         verbose : bool, optional
             If True, some information is dumped to stdout
-        pixel_scale : float, optional
-            The linear size of each pixel in pc
-        scale_ratio : float, optional
-            The ratio of the scale along the 3rd(z) axis relative to
-            the other two axes
 
         Attributes
         ----------
     """
 
-    def __init__(self, cube_half_length, distance, mean_density, depth, cfac,
-                 outer_L, Tg, lines, abuns, pixel_scale=1, scale_ratio=1.,
+    def __init__(self, cube_half_length, distance, mean_density, depth,
+                 angular_width, cfac, outer_L, Tg, lines, abuns,
                  verbose=False):
         # Check and set parameters
 
@@ -85,8 +82,15 @@ class LRFCloud(object):
         self.outer_L = outer_L
 
         self.Tg = Tg
-        self.pixel_scale = pixel_scale
-        self.scale_ratio = scale_ratio
+
+        # Calculate scales
+        self.angular_width = angular_width
+        self.pixel_scale = (self.dens_func.mid_dist
+                            * math.tan(math.radians(angular_width))
+                            / self.cube_half_length)
+
+        self.scale_ratio = (2 * self.dens_func.half_width
+                            / (self.pixel_scale * self.cube_half_length))
 
         self._images = {}
 
