@@ -38,10 +38,10 @@ class DensityFunc(object):
     def limited_mean(self):
         return
 
-    def MH_propose(self, density_prop):
+    def MH_propose(self, proposal_width):
         """ MH_propose(proposal_width)
 
-            Obtain a new QuadraticDensityFunc instance for use in
+            Obtain a new DensityFunc instance for use in
             MH-MCMC samplers.
 
             Parameters
@@ -56,13 +56,11 @@ class DensityFunc(object):
                 The new instance
         """
         new_density_func = cp.deepcopy(self)
-        for key in density_prop:
+        for key in proposal_width:
             new_density_func.__dict__[key] = (prev_cloud.density_func
                                               .__dict__[key]
-                                              + density_prop[key]
+                                              + proposal_width[key]
                                               * np.random.randn())
-        new_density_func.a = (-new_density_func.max_dens
-                              / pow(new_density_func.half_width, 2))
         return new_density_func
 
     @abc.abstractmethod
@@ -76,6 +74,7 @@ class DensityFunc(object):
     @abc.abstractmethod
     def fourier2(self):
         return
+
 
 class UniformDensityFunc(DensityFunc):
     """ A class to hold a 1D mean density function that is parametrised
@@ -180,13 +179,14 @@ class UniformDensityFunc(DensityFunc):
             Returns
             -------
             f2_array : ndarray
-                The value of the magnitude squared of the fourier 
+                The value of the magnitude squared of the fourier
                 transform of the density function at the wavenumber
                 given in k_array
         """
-        f2_array = pow( np.sinc(k_array*self.half_width)
+        f2_array = pow(np.sinc(k_array*self.half_width)
                        * 2 * self.half_width, 2)
         return f2_array
+
 
 class QuadraticDensityFunc(DensityFunc):
     """ class QuadraticDensityFunc
