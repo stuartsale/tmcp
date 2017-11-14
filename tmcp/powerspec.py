@@ -257,7 +257,7 @@ class SM14Powerspec(IsmPowerspec):
         ps = self.PS(k_array)
 
         # Bodge to account for very thick clouds
-        if dist_array[-1]/2<dens_func.half_width:
+        if dist_array[-1]/2 < dens_func.half_width:
             projected_ps = ps[:, 0]*np.pi*dens_func.half_width
         else:
             projected_ps = ((ps[:, 0]*fourier_dens2[0]
@@ -285,3 +285,31 @@ class SM14Powerspec(IsmPowerspec):
         """
         return {"gamma": self.gamma, "omega": self.omega, "L": self.L,
                 "var": self.var}
+
+    def MH_propose(self, proposal_width):
+        """ MH_propose(proposal_width)
+
+            Obtain a new SM14Powerspec instance for use in
+            MH-MCMC samplers.
+
+            Parameters
+            ----------
+            proposal_width : dict
+                The width of the (Gaussian) proposal distibution
+                for each paramater
+
+            Returns
+            -------
+            new_ps : SM14Powerspec
+                The new instance
+        """
+        cls = self.__class__
+        new_params = {}
+        old_params = self.param_dict()
+        for param in self.param_names:
+            new_params[param] = (old_params[param]
+                                 + proposal_width[param] * np.random.randn())
+
+        new_ps = cls.__init__(**new_params)
+
+        return new_ps
