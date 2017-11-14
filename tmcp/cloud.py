@@ -259,8 +259,8 @@ class CloudProbObj(object):
         log_priorprob : float
         log_inducingprob : float
         log_likelihood: float
-        mean_dict : dict
-        cov_funcs : dict
+        col_mean : dict
+        cov_func : dict
     """
 
     def __init__(self, density_func, power_spec, inducing_obj,
@@ -284,9 +284,9 @@ class CloudProbObj(object):
         self.log_inducingprob = 0.
         self.log_likelihood = 0.
 
-        # initialise empty dicts to hold means & cov mats
-        self.mean_dict = {}
-        self.cov_funcs = {}
+        # initialise column mean & cov mats
+        self.col_mean = None
+        self.cov_func = None
 
         # initialise cogs
         self.cogs = None
@@ -335,7 +335,7 @@ class CloudProbObj(object):
 
             # Fill in cov matrices
             self.inducing_obj.inducing_cov_mats[line_id] = (
-                                self.cov_funcs[line_id](self.inducing_diff))
+                                self.cov_func(self.inducing_diff))
 
             # Get cholesky decompositions
             try:
@@ -386,7 +386,7 @@ class CloudProbObj(object):
 
             Q = cho_solve(self.inducing_obj.inducing_cov_mats_cho[line_id],
                           self.inducing_obj.inducing_values[line_id]
-                          - self.mean_dict[line_id])
+                          - self.col_mean)
 
         # Combine across lines to get total prob
         # - Implement inter-line covariances!?!
@@ -395,7 +395,7 @@ class CloudProbObj(object):
                 - np.sum(np.log(np.diag(
                         self.inducing_obj.inducing_cov_mats_cho[line_id][0])))
                 - np.dot(self.inducing_obj.inducing_values[line_id]
-                         - self.mean_dict[line_id], Q)/2.)
+                         - self.col_mean, Q)/2.)
 
     def set_zs(self, zs=None):
         """ set_zs()
@@ -438,22 +438,22 @@ class CloudProbObj(object):
             None
         """
         for line_id in self.lines:
-            cov_marg = self.cov_funcs[line_id](0)
+            cov_marg = self.cov_func(0.)
             for indices in np.ndindex(self.data_dict[lineid].shape):
 
                 # work out mean and sd
                 diff = self.inducing_obj.single_diff(
                             self.data_dict[lineid].x_coord[indices],
                             self.data_dict[lineid].x_coord[indices])
-                covar_vec = self.cov_funcs[line_id](diff)
+                covar_vec = self.cov_func(diff)
 
                 Q = cho_solve(self.inducing_obj.inducing_cov_mats_cho[line_id],
                               covar_vec)
 
-                mean_cond = (self.mean_dict[line_id]
+                mean_cond = (self.col_mean
                              + np.dot(
                                 Q, self.inducing_obj.inducing_values[line_id]
-                                - self.mean_dict[line_id]))
+                                - self.col_mean))
                 cov_cond = cov_marg - np.dot(Q, covar_vec)
 
                 # use z and mean and sd to get col dens
@@ -500,29 +500,21 @@ class CloudProbObj(object):
         for image in new_obj.data_list:
             new_obj.lines.append([image.species, image.line])
 
-        # Cycle through observed lines
-        for line_id in new_obj.lines:
+        # Get mean column density in >0 region
+        new_obj.col_mean = new_obj.density_func.integral()
 
-            crit_dens = critical_density(line_id[0], line_id[1])
+        # Project powerspectrum
+        ps = new_obj.power_spec.project(new_obj.dist_array,
+                                        new_obj.density_func)
 
-            # Trim mean density function
-            censored_dens = new_obj.density_func.censored_grid(
-                                                new_obj.dist_array, crit_dens)
+        # Obtain covariance function
+        cov_values = np.fft.irfft(ps)
+        new_obj.cov_func = InterpolatedUnivariateSpline(new_obj.dist_array,
+                                                        cov_values)
 
-            # Get mean column density in >0 region
-            new_obj.mean_dict[line_id] = np.sum(censored_dens)
-
-            # Project powerspectrum
-            ps = new_obj.power_spec.project(new_obj.dist_array, censored_dens)
-
-            # Obtain covariance function
-            cov_values = np.fft.irfft(ps)
-            new_obj.cov_funcs[line_id] = InterpolatedUnivariateSpline(
-                                                new_obj.dist_array, cov_values)
-
-            # Set inducing values to initially match mean
-            new_obj.inducing_obj.inducing_values[line_id] = (
-                            np.zeros(new_obj.nu) + new_obj.mean_dict[line_id])
+        # Set inducing values to initially match mean
+        new_obj.inducing_obj.inducing_values[line_id] = (
+                        np.zeros(new_obj.nu) + new_obj.col_mean)
 
         # Get CoGs
         line_dict = {}
@@ -621,25 +613,17 @@ class CloudProbObj(object):
         new_obj.inducing_obj = inducing_obj
         new_obj.abundances_dict = abundances_dict
 
-        # Cycle through observed lines
-        for line_id in new_obj.lines:
+        # Get mean column density in >0 region
+        new_obj.col_mean = new_obj.density_func.integral()
 
-            crit_dens = critical_density(line_id[0], line_id[1])
+        # Project powerspectrum
+        ps = new_obj.power_spec.project(new_obj.dist_array,
+                                        new_obj.density_func)
 
-            # Trim mean density function
-            censored_dens = new_obj.density_func.censored_grid(
-                                                new_obj.dist_array, crit_dens)
-
-            # Get mean column density in >0 region
-            new_obj.mean_dict[line_id] = np.sum(censored_dens)
-
-            # Project powerspectrum
-            ps = new_obj.power_spec.project(new_obj.dist_array, censored_dens)
-
-            # Obtain covariance function
-            cov_values = np.fft.irfft(ps)
-            new_obj.cov_funcs[line_id] = InterpolatedUnivariateSpline(
-                                                new_obj.dist_array, cov_values)
+        # Obtain covariance function
+        cov_values = np.fft.irfft(ps)
+        new_obj.cov_func = InterpolatedUnivariateSpline(new_obj.dist_array,
+                                                        cov_values)
 
         # Get CoGs
         line_dict = {}
@@ -666,21 +650,3 @@ class CloudProbObj(object):
                                      + new_obj.log_likelihood)
 
         return new_obj
-
-
-def critical_density(species, line):
-    """ critical_density(species, line)
-
-        Find the critical density of a given transition line
-
-        Parameters
-        ----------
-        species : str
-        line : int
-
-        Returns
-        -------
-        float
-            The critical density
-    """
-    return 0.
