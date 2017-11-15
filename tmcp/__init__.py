@@ -54,10 +54,10 @@ class ApmEssMh(object):
             Indicates if MCMC has been run
     """
 
-    def __init__(self, data_dict_in, mh_prop, density_func=None,
-                 power_spec=None, inducing_x=None, inducing_y=None,
-                 abundances_dict=None, dist_array=None,
-                 iterations=10000, durnin=5000,
+    def __init__(self, data_dict_files, mh_prop, density_func,
+                 power_spec, abundances_dict, inducing_x=None, inducing_y=None,
+                 dist_array=None, data_dict_arrays=None,
+                 iterations=10000, burnin=5000,
                  thin=10):
         """ __init__(data_dict_in, iterations=10000, mh_prop)
 
@@ -91,16 +91,16 @@ class ApmEssMh(object):
         for line_id, files in data_dict_in.items():
             data_dict[line_id] = CloudDataObj.from_fits(line_id[0], line_id[1],
                                                         files[0], files[1])
+        if data_dict_arrays is not None:
+            for line_id, arrays in data_dict_arrays.items():
+                data_dict[line_id] = CloudDataObj(line_id[0], line_id[1],
+                                                  arrays[0], arrays[1],
+                                                  arrays[2], arrays[3])
 
-        # Construct DensityFunc instance
-
-        if density_func is None:
-            density_func = density.QuadraticDensityFunc(10, XX, 2)
-
-        # construct power spectrum
-
-#        if power_spec is None:
-#            power_spec = 
+        # Store density function, etc
+        self.density_func = density_func
+        self.power_spec = power_spec
+        self.abundances_dict = abundances_dict
 
         # construct the inducing_obj
 
@@ -110,15 +110,10 @@ class ApmEssMh(object):
             inducing_obj = cloud.CloudInducingObj(inducing_x, inducing_y,
                                                   np.zeros(inducing_x.shape))
 
-        # Set initial guess at abundances
-
-        if abundances_dict is None:
-            pass
-
         # Set distance array
 
         if dist_array is None:
-            pass
+            self.dist_array = np.arange(100., 5000., 50)
 
         # Create CloudProbObj
 
@@ -152,7 +147,9 @@ class ApmEssMh(object):
             self.last_cloud = samplers.update_zs_ESS(self.last_cloud)
 
             # update hypers
-            self.last_cloud = samplers.update_hypers_MH()
+            self.last_cloud = samplers.update_hypers_MH(
+                    self.last_cloud, density_prop, ps_prop, inducing_prop,
+                    abundances_prop)
 
             # Add to chains
             if i > self.burnin and i % thin == 0:
