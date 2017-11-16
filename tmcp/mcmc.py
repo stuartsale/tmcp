@@ -21,6 +21,7 @@ import abc
 import copy
 import math
 import numpy as np
+from tqdm import tqdm
 
 import cogs
 import cloud
@@ -139,7 +140,7 @@ class ApmEssMh(object):
         """ iterate()
 
         """
-        for i in range(self.iterations):
+        for i in tqdm(range(self.iterations)):
 
             # update zs
             self.last_cloud = samplers.update_zs_ESS(self.last_cloud)
