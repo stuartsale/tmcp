@@ -23,6 +23,7 @@ import numpy as np
 
 import cogs
 import cloud
+from data import CloudDataObj
 import density
 import samplers
 
