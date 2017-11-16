@@ -114,3 +114,78 @@ class CloudDataObj(object):
         y_lims = (self.y_coord.min(), self.y_coord.max())
 
         return x_lims, y_lims
+
+
+class CloudDataSet(object):
+    """ A class to hold a dict of images for several lines/bands
+
+        Paramaters
+        ----------
+        files_dict : dict
+        arrays_dict : dict, optional
+
+        Attributes
+        ----------
+        data_objs : dict
+        max_opening_angle : float
+    """
+
+    def __init__(self, files_dict, arrays_dict=None):
+
+        self.data_objs = {}
+        for line_id, files in files_dict.items():
+            self.data_objs[line_id] = CloudDataObj.from_fits(line_id[0],
+                                                             line_id[1],
+                                                             files[0],
+                                                             files[1])
+        if arrays_dict is not None:
+            for line_id, arrays in arrays_dict.items():
+                self.data_objs[line_id] = CloudDataObj(line_id[0], line_id[1],
+                                                       arrays[0], arrays[1],
+                                                       arrays[2], arrays[3])
+
+        lims = self.onsky_limits()
+        self.max_opening_angle = 1.5 * max(abs(lims[0][1] - lims[0][0]),
+                                           abs(lims[1][1] - lims[1][0]))
+
+    def __getattr__(self, attr):
+        return self.data[attr]
+
+    def __iter__(self):
+        for data_obj in self.data_objs.values():
+            yield data_obj
+
+    def onsky_limits(self):
+        """ onsky_limits()
+
+            Return the minimum and maximum coordinates from any of the
+            images. (Min, Max) pairs are provided on each axis
+            - typically (RA, DEC) or (l, b).
+
+            Parameters
+            ----------
+            None
+
+            Returns
+            -------
+            (x_min, x_max) : tuple
+                The min and max coordinates along the first axis
+                (typically RA or l)
+            (y_min, y_max) : tuple
+                The min and max coordinates along the second axis
+                (typically DEC or b)
+        """
+        x_min = +np.inf
+        x_max = -np.inf
+        y_min = +np.inf
+        y_max = -np.inf
+
+        for image in self.data_objs.values():
+            lims = image.onsky_limits()
+
+            x_min = min(x_min, lims[0][0])
+            x_max = max(x_max, lims[0][1])
+            y_min = min(y_min, lims[1][0])
+            y_max = max(y_max, lims[1][1])
+
+        return ((x_min, x_max), (y_min, y_max))

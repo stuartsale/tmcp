@@ -398,41 +398,6 @@ class CloudProbObj(object):
                         TBs - self.data_dict[line_id].data_array[indices])
                         / self.data_dict[line_id].error_array[indices], 2))/2.)
 
-    def onsky_limits(self):
-        """ onsky_limits()
-
-            Return the minimum and maximum coordinates from any of the
-            images. (Min, Max) pairs are provided on each axis
-            - typically (RA, DEC) or (l, b).
-
-            Parameters
-            ----------
-            None
-
-            Returns
-            -------
-            (x_min, x_max) : tuple
-                The min and max coordinates along the first axis
-                (typically RA or l)
-            (y_min, y_max) : tuple
-                The min and max coordinates along the second axis
-                (typically DEC or b)
-        """
-        x_min = +np.inf
-        x_max = -np.inf
-        y_min = +np.inf
-        y_max = -np.inf
-
-        for image in self.data_dict.values():
-            lims = image.onsky_limits()
-
-            x_min = min(x_min, lims[0][0])
-            x_max = max(x_max, lims[0][1])
-            y_min = min(y_min, lims[1][0])
-            y_max = max(y_max, lims[1][1])
-
-        return ((x_min, x_max), (y_min, y_max))
-
     @classmethod
     def new_cloud(cls, density_func, power_spec, inducing_obj, abundances_dict,
                   data_dict, dist_array, nz=10):
@@ -463,10 +428,6 @@ class CloudProbObj(object):
 
         for image in new_obj.data_dict:
             new_obj.lines.append([image.species, image.line])
-
-        lims = new_obj.onsky_limits()
-        new_obj.max_opening_angle = 1.5 * max(abs(lims[0][1]-lims[0][0]),
-                                              abs(lims[1][1]-lims[1][0]))
 
         # Get mean column density in >0 region
         new_obj.col_mean = new_obj.density_func.integral()
