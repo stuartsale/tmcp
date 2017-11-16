@@ -17,6 +17,7 @@
 # along with this tmcp.  If not, see <http://www.gnu.org/licenses/>.
 ########################################################################
 
+from __future__ import division
 import abc
 import copy
 import math
@@ -128,7 +129,8 @@ class ApmEssMh(object):
                            + self.last_cloud.power_spec.param_names
                            + self.last_cloud.abundances_dict.keys()
                            + ["log_posteriorprob", "log_priorprob",
-                              "log_inducingprob", "log_likelihood"])
+                              "log_inducingprob", "log_likelihood",
+                              "accept_rate"])
 
         for i in range(self.last_cloud.inducing_obj.nu):
             self.chain_cols.append("u{0:d}".format(i))
@@ -137,6 +139,8 @@ class ApmEssMh(object):
                 np.zeros([len(self.chain_cols),
                           math.floor((self.iterations - self.burnin)
                                      / self.thin)]), names=self.chain_cols)
+
+        self.accepts = 0
 
     def iterate(self):
         """ iterate()
@@ -148,17 +152,20 @@ class ApmEssMh(object):
             self.last_cloud = samplers.update_zs_ESS(self.last_cloud)
 
             # update hypers
-            self.last_cloud = samplers.update_hypers_MH(
-                    self.last_cloud, self.mh_prop["density"],
-                    self.mh_prop["ps"], {}, {})
+            self.last_cloud, mh_success = samplers.update_hypers_MH(
+                        self.last_cloud, self.mh_prop["density"],
+                        self.mh_prop["ps"], {}, {})
+
+            if mh_success:
+                    self.accepts += 1
 
             # Add to chains
             if i > self.burnin and i % self.thin == 0:
-                self.store_to_chain((i-self.burnin)/self.thin)
+                self.store_to_chain((i-self.burnin)/self.thin, i)
 
         self.run = True
 
-    def store_to_chain(self, row):
+    def store_to_chain(self, row, iteration):
         """ store_to_chain()
 
             Parameters
@@ -195,6 +202,8 @@ class ApmEssMh(object):
                                         self.last_cloud.log_inducingprob)
         self.hyper_chain[row]["log_likelihood"] = (
                                         self.last_cloud.log_likelihood)
+
+        self.hyper_chain[row]["accept_rate"] = self.accepts / (iteration+1)
 
     def mean_sds(self):
         """ mean_sds()
