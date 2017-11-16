@@ -132,9 +132,9 @@ def update_hypers_MH(prev_cloud, density_prop, ps_prop, inducing_prop,
                                                  new_inducing_obj,
                                                  new_abundances)
 
-    if (new_cloud.log_posterior_prob - prev_clous.log_posteriorprob) > 0:
+    if (new_cloud.log_posterior_prob - prev_cloud.log_posteriorprob) > 0:
         return new_cloud
-    elif ((new_cloud.log_posterior_prob - prev_clous.log_posteriorprob)
+    elif ((new_cloud.log_posterior_prob - prev_cloud.log_posteriorprob)
             > math.log(np.random.rand())):
         return new_cloud
     else:

@@ -438,13 +438,12 @@ class CloudProbObj(object):
 
         # Obtain covariance function
         cov_values = np.fft.irfft(ps)
-        print(cov_values, new_obj.dist_array)
         new_obj.cov_func = InterpolatedUnivariateSpline(new_obj.dist_array,
                                                         cov_values)
 
         # Set inducing values to initially match mean
-        new_obj.inducing_obj.inducing_values[line_id] = (
-                        np.zeros(new_obj.nu) + new_obj.col_mean)
+        new_obj.inducing_obj.inducing_values = (
+                        np.zeros(new_obj.inducing_obj.nu) + new_obj.col_mean)
 
         # Get CoGs
         line_dict = {}
@@ -454,9 +453,8 @@ class CloudProbObj(object):
             else:
                 line_dict[line_id[0]] = [line_dict[1]]
 
-        nHmean = new_obj.density_func.limited_mean()
-
-        new_obj.cogs = CoGsObj(self.abundance_dict, line_dict, nHmean)
+        new_obj.cogs = CoGsObj(new_obj.abundances_dict, line_dict,
+                               new_obj.density_func, power_spec)
 
         # Estimate probs
 

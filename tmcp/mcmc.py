@@ -19,11 +19,12 @@
 
 import abc
 import copy
+import math
 import numpy as np
 
 import cogs
 import cloud
-from data import CloudDataDict
+from data import CloudDataSet
 import density
 import samplers
 
@@ -87,7 +88,7 @@ class ApmEssMh(object):
         self.run = False
 
         # construct the data dict
-        self.data_dict = CloudDataDict(data_dict_files, data_dict_arrays)
+        self.data_dict = CloudDataSet(data_dict_files, data_dict_arrays)
 
         # Store density function, etc
         self.density_func = density_func
@@ -129,11 +130,10 @@ class ApmEssMh(object):
         for i in range(self.last_cloud.inducing_obj.nu):
             self.chain_cols.append("u{0:d}".format(i))
 
-        self.hyper_chain = np.rec.fromarrays(np.zeros([len(self.chain_cols),
-                                                       floor((self.iterations
-                                                              - self.burnin)
-                                                             / self.thin)]),
-                                             names=self.chain_cols)
+        self.hyper_chain = np.rec.fromarrays(
+                np.zeros([len(self.chain_cols),
+                          math.floor((self.iterations - self.burnin)
+                                     / self.thin)]), names=self.chain_cols)
 
     def iterate(self):
         """ iterate()
