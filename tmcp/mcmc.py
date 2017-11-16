@@ -151,7 +151,7 @@ class ApmEssMh(object):
                     self.mh_prop["ps"], {}, {})
 
             # Add to chains
-            if i > self.burnin and i % thin == 0:
+            if i > self.burnin and i % self.thin == 0:
                 self.store_to_chain((i-self.burnin)/self.thin)
 
         self.run = True
@@ -176,9 +176,9 @@ class ApmEssMh(object):
         for field in ps_params:
             self.hyper_chain[row][field] = ps_params[field]
 
-        for field in self.last_cloud.abundance_dict:
+        for field in self.last_cloud.abundances_dict:
             self.hyper_chain[row][field] = (
-                                        self.last_cloud.abundance_dict[field])
+                                        self.last_cloud.abundances_dict[field])
 
         for n in range(self.last_cloud.inducing_obj.nu):
             self.hyper_chain[row]["u{0:d}".format(n)] = (
