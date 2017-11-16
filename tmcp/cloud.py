@@ -545,8 +545,8 @@ class CloudProbObj(object):
         new_obj.col_mean = new_obj.density_func.integral()
 
         # Project powerspectrum
-        ps = new_obj.power_spec.project(new_obj.dist_array,
-                                        new_obj.density_func)
+        ks, ps, f2 = new_obj.power_spec.project(new_obj.dist_array,
+                                                new_obj.density_func)
 
         # Obtain covariance function
         cov_values = np.fft.irfft(ps)
@@ -561,9 +561,8 @@ class CloudProbObj(object):
             else:
                 line_dict[line_id[0]] = [line_dict[1]]
 
-        nHmean = new_obj.density_func.limited_mean()
-
-        new_obj.cogs = CoGsObj(self.abundance_dict, line_dict, nHmean)
+        new_obj.cogs = CoGsObj(new_obj.abundances_dict, line_dict,
+                               new_obj.density_func, power_spec)
 
         # Estimate probs
 

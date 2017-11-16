@@ -63,7 +63,7 @@ def update_zs_ESS(prev_cloud):
     new_cloud = CloudProbObj.copy_changed_z(prev_cloud, new_zs)
 
     # Test prob
-    if ((new_cloud.log_posterior_prob - prev_clous.log_posteriorprob)
+    if ((new_cloud.log_posteriorprob - prev_cloud.log_posteriorprob)
             > log_slice_level):
         return new_cloud
 
@@ -82,7 +82,7 @@ def update_zs_ESS(prev_cloud):
         new_cloud = CloudProbObj.copy_changed_z(prev_cloud, prop_zs)
 
         # Test prob
-        if ((new_cloud.log_posterior_prob - prev_clous.log_posteriorprob)
+        if ((new_cloud.log_posteriorprob - prev_cloud.log_posteriorprob)
                 > log_slice_level):
             accepted = True
 
@@ -132,9 +132,9 @@ def update_hypers_MH(prev_cloud, density_prop, ps_prop, inducing_prop,
                                                  new_inducing_obj,
                                                  new_abundances)
 
-    if (new_cloud.log_posterior_prob - prev_cloud.log_posteriorprob) > 0:
+    if (new_cloud.log_posteriorprob - prev_cloud.log_posteriorprob) > 0:
         return new_cloud
-    elif ((new_cloud.log_posterior_prob - prev_cloud.log_posteriorprob)
+    elif ((new_cloud.log_posteriorprob - prev_cloud.log_posteriorprob)
             > math.log(np.random.rand())):
         return new_cloud
     else:

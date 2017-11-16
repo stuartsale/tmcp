@@ -19,6 +19,7 @@
 
 import abc
 import collections
+import copy as cp
 import numpy as np
 
 
@@ -57,8 +58,7 @@ class DensityFunc(object):
         """
         new_density_func = cp.deepcopy(self)
         for key in proposal_width:
-            new_density_func.__dict__[key] = (prev_cloud.density_func
-                                              .__dict__[key]
+            new_density_func.__dict__[key] = (self.__dict__[key]
                                               + proposal_width[key]
                                               * np.random.randn())
         return new_density_func

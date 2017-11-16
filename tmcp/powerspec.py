@@ -310,6 +310,6 @@ class SM14Powerspec(IsmPowerspec):
             new_params[param] = (old_params[param]
                                  + proposal_width[param] * np.random.randn())
 
-        new_ps = cls.__init__(**new_params)
+        new_ps = cls(**new_params)
 
         return new_ps
