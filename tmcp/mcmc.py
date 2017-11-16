@@ -87,15 +87,20 @@ class ApmEssMh(object):
 
         # construct the data dict
 
-        data_dict = {}
+        self.data_dict = {}
         for line_id, files in data_dict_files.items():
-            data_dict[line_id] = CloudDataObj.from_fits(line_id[0], line_id[1],
-                                                        files[0], files[1])
+            self.data_dict[line_id] = CloudDataObj.from_fits(line_id[0],
+                                                             line_id[1],
+                                                             files[0],
+                                                             files[1])
         if data_dict_arrays is not None:
             for line_id, arrays in data_dict_arrays.items():
-                data_dict[line_id] = CloudDataObj(line_id[0], line_id[1],
-                                                  arrays[0], arrays[1],
-                                                  arrays[2], arrays[3])
+                self.data_dict[line_id] = CloudDataObj(line_id[0], line_id[1],
+                                                       arrays[0], arrays[1],
+                                                       arrays[2], arrays[3])
+
+        # get max opening angle
+        lims = self.onsky_limits()
 
         # Store density function, etc
         self.density_func = density_func
@@ -105,7 +110,8 @@ class ApmEssMh(object):
         # construct the inducing_obj
 
         if inducing_x is None or inducing_y is None:
-            inducing_obj = cloud.CloudInducingObj.new_from_grid(3, 3, xx, xx)
+            inducing_obj = cloud.CloudInducingObj.new_from_grid(3, 3, lims[0],
+                                                                lims[1])
         else:
             inducing_obj = cloud.CloudInducingObj(inducing_x, inducing_y,
                                                   np.zeros(inducing_x.shape))
@@ -113,14 +119,18 @@ class ApmEssMh(object):
         # Set distance array
 
         if dist_array is None:
-            self.dist_array = np.arange(100., 5000., 50)
+            self.dist_array = np.arange(0., 5000., 50)
+        else:
+            self.dist_array = dist_array
 
         # Create CloudProbObj
 
-        self.last_cloud = cloud.CloudProb.new_cloud(density_func, power_spec,
-                                                    inducing_obj,
-                                                    abundances_dict, data_dict,
-                                                    dist_array)
+        self.last_cloud = cloud.CloudProbObj.new_cloud(density_func,
+                                                       power_spec,
+                                                       inducing_obj,
+                                                       abundances_dict,
+                                                       self.data_dict,
+                                                       self.dist_array)
 
         # set up recarray to store chain
 
@@ -204,3 +214,38 @@ class ApmEssMh(object):
         for field in self.hyper_chain.dtype.names:
             means[field] = np.mean(self.hyper_chain[field])
             sds[field] = np.std(self.hyper_chain[field])
+
+    def onsky_limits(self):
+        """ onsky_limits()
+
+            Return the minimum and maximum coordinates from any of the
+            images. (Min, Max) pairs are provided on each axis
+            - typically (RA, DEC) or (l, b).
+
+            Parameters
+            ----------
+            None
+
+            Returns
+            -------
+            (x_min, x_max) : tuple
+                The min and max coordinates along the first axis
+                (typically RA or l)
+            (y_min, y_max) : tuple
+                The min and max coordinates along the second axis
+                (typically DEC or b)
+        """
+        x_min = +np.inf
+        x_max = -np.inf
+        y_min = +np.inf
+        y_max = -np.inf
+
+        for image in self.data_dict.values():
+            lims = image.onsky_limits()
+
+            x_min = min(x_min, lims[0][0])
+            x_max = max(x_max, lims[0][1])
+            y_min = min(y_min, lims[1][0])
+            y_max = max(y_max, lims[1][1])
+
+        return ((x_min, x_max), (y_min, y_max))

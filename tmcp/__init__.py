@@ -17,4 +17,4 @@
 # along with this tmcp.  If not, see <http://www.gnu.org/licenses/>.
 ########################################################################
 
-from fit import ApmEssMh
+from mcmc import ApmEssMh
