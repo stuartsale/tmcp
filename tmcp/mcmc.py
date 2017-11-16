@@ -126,7 +126,9 @@ class ApmEssMh(object):
 
         self.chain_cols = (self.last_cloud.density_func.param_names
                            + self.last_cloud.power_spec.param_names
-                           + self.last_cloud.abundances_dict.keys())
+                           + self.last_cloud.abundances_dict.keys()
+                           + ["log_posteriorprob", "log_priorprob",
+                              "log_inducingprob", "log_likelihood"])
 
         for i in range(self.last_cloud.inducing_obj.nu):
             self.chain_cols.append("u{0:d}".format(i))
@@ -183,6 +185,16 @@ class ApmEssMh(object):
         for n in range(self.last_cloud.inducing_obj.nu):
             self.hyper_chain[row]["u{0:d}".format(n)] = (
                     self.last_cloud.inducing_obj.inducing_values[n])
+
+        # Probs
+        self.hyper_chain[row]["log_posteriorprob"] = (
+                                        self.last_cloud.log_posteriorprob)
+        self.hyper_chain[row]["log_priorprob"] = (
+                                        self.last_cloud.log_priorprob)
+        self.hyper_chain[row]["log_inducingprob"] = (
+                                        self.last_cloud.log_inducingprob)
+        self.hyper_chain[row]["log_likelihood"] = (
+                                        self.last_cloud.log_likelihood)
 
     def mean_sds(self):
         """ mean_sds()
