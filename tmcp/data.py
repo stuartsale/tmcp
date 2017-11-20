@@ -155,6 +155,9 @@ class CloudDataSet(object):
         for data_obj in self.data_objs.values():
             yield data_obj
 
+    def __getitem__(self, item):
+        return self.data_objs[item]
+
     def onsky_limits(self):
         """ onsky_limits()
 

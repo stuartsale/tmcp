@@ -49,11 +49,13 @@ class CloudInducingObj(object):
         self.inducing_x = np.array(inducing_x).flatten()
         self.inducing_y = np.array(inducing_y).flatten()
 
-        if self.inducing_x.size != self.inducing_y.size:
+        if self.inducing_x.shape != self.inducing_y.shape:
             raise ValueError("Dimensions of x & y inducing point arrays "
                              "do not match")
 
+        self.shape = self.inducing_x.shape
         self.nu = self.inducing_x.size
+
         self.inducing_diff = np.sqrt(np.power(self.inducing_x
                                               - self.inducing_x.reshape(
                                                     self.nu, 1), 2)
@@ -61,9 +63,9 @@ class CloudInducingObj(object):
                                                 - self.inducing_y.reshape(
                                                     self.nu, 1), 2))
 
-        self.inducing_values = {}
-        self.inducing_cov_mats = {}
-        self.inducing_cov_mats_cho = {}
+        self.inducing_values = np.zeros(self.shape)
+        self.inducing_cov_mat = np.zeros(self.shape)
+        self.inducing_cov_mat_cho = np.zeros(self.shape)
 
     def add_values(self, line_id, values):
         """ add_values(line_id, values)
@@ -259,20 +261,17 @@ class CloudProbObj(object):
             -------
             None
         """
-        # Cycle through lines
-        for line_id in self.lines:
+        # Fill in cov matrices
+        self.inducing_obj.inducing_cov_mat = (
+                                self.cov_func(self.inducing_obj.inducing_diff))
 
-            # Fill in cov matrices
-            self.inducing_obj.inducing_cov_mats[line_id] = (
-                                self.cov_func(self.inducing_diff))
-
-            # Get cholesky decompositions
-            try:
-                self.inducing_obj.inducing_cov_mats_cho[line_id] = cho_factor(
-                                self.inducing_obj.inducing_cov_mats[line_id],
+        # Get cholesky decompositions
+        try:
+            self.inducing_obj.inducing_cov_mat_cho = cho_factor(
+                                self.inducing_obj.inducing_cov_mat,
                                 check_finite=False)
-            except np.linalg.linalg.LinAlgError or ValueError:
-                raise
+        except np.linalg.linalg.LinAlgError or ValueError:
+            raise
 
     def set_prior_logprob(self):
         """ set_prior_logprob()
@@ -313,17 +312,16 @@ class CloudProbObj(object):
 
             # calculate prob
 
-            Q = cho_solve(self.inducing_obj.inducing_cov_mats_cho[line_id],
-                          self.inducing_obj.inducing_values[line_id]
-                          - self.col_mean)
+            Q = cho_solve(self.inducing_obj.inducing_cov_mat_cho,
+                          self.inducing_obj.inducing_values - self.col_mean)
 
         # Combine across lines to get total prob
         # - Implement inter-line covariances!?!
 
             self.log_inducingprob += (
                 - np.sum(np.log(np.diag(
-                        self.inducing_obj.inducing_cov_mats_cho[line_id][0])))
-                - np.dot(self.inducing_obj.inducing_values[line_id]
+                        self.inducing_obj.inducing_cov_mat_cho[0])))
+                - np.dot(self.inducing_obj.inducing_values
                          - self.col_mean, Q)/2.)
 
     def set_zs(self, zs=None):
@@ -347,8 +345,8 @@ class CloudProbObj(object):
         self.zs = {}
         for line_id in self.lines:
             self.zs[line_id] = np.random.randn(
-                                        self.data_list[line_id].shape[0],
-                                        self.data_list[line_id].shape[1],
+                                        self.data_dict[line_id].shape[0],
+                                        self.data_dict[line_id].shape[1],
                                         self.nz)
 
     def estimate_loglikelihood(self):
@@ -368,21 +366,20 @@ class CloudProbObj(object):
         """
         for line_id in self.lines:
             cov_marg = self.cov_func(0.)
-            for indices in np.ndindex(self.data_dict[lineid].shape):
+            for indices in np.ndindex(self.data_dict[line_id].shape):
 
                 # work out mean and sd
                 diff = self.inducing_obj.single_diff(
-                            self.data_dict[lineid].x_coord[indices],
-                            self.data_dict[lineid].x_coord[indices])
+                            self.data_dict[line_id].x_coord[indices],
+                            self.data_dict[line_id].y_coord[indices])
                 covar_vec = self.cov_func(diff)
 
-                Q = cho_solve(self.inducing_obj.inducing_cov_mats_cho[line_id],
+                Q = cho_solve(self.inducing_obj.inducing_cov_mat_cho,
                               covar_vec)
 
                 mean_cond = (self.col_mean
-                             + np.dot(
-                                Q, self.inducing_obj.inducing_values[line_id]
-                                - self.col_mean))
+                             + np.dot(Q, self.inducing_obj.inducing_values
+                                      - self.col_mean))
                 cov_cond = cov_marg - np.dot(Q, covar_vec)
 
                 # use z and mean and sd to get col dens
@@ -427,7 +424,7 @@ class CloudProbObj(object):
                       data_dict, dist_array, nz)
 
         for image in new_obj.data_dict:
-            new_obj.lines.append([image.species, image.line])
+            new_obj.lines.append((image.species, image.line))
 
         # Get mean column density in >0 region
         new_obj.col_mean = new_obj.density_func.integral()
@@ -451,7 +448,7 @@ class CloudProbObj(object):
             if line_id[0] in line_dict:
                 line_dict[line_id[0]].append(line_id[1])
             else:
-                line_dict[line_id[0]] = [line_dict[1]]
+                line_dict[line_id[0]] = [line_id[1]]
 
         new_obj.cogs = CoGsObj(new_obj.abundances_dict, line_dict,
                                new_obj.density_func, power_spec)
