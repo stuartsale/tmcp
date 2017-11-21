@@ -364,6 +364,7 @@ class CloudProbObj(object):
             -------
             None
         """
+        self.log_likelihood = 0.
         for line_id in self.lines:
             cov_marg = self.cov_func(0.)
             for indices in np.ndindex(self.data_dict[line_id].shape):
