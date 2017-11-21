@@ -48,8 +48,8 @@ def update_zs_ESS(prev_cloud):
     new_zs = {}
     for line_id in prev_cloud.lines:
         new_zs[line_id] = np.random.randn(
-                                        prev_cloud.data_list[line_id].shape[0],
-                                        prev_cloud.data_list[line_id].shape[1],
+                                        prev_cloud.data_dict[line_id].shape[0],
+                                        prev_cloud.data_dict[line_id].shape[1],
                                         prev_cloud.nz)
 
     # Make first draw on ellipse
@@ -74,9 +74,14 @@ def update_zs_ESS(prev_cloud):
         # Draw new angle
         new_angle = (max_angle - min_angle) * np.random.rand() + min_angle
 
+        if abs(new_angle) <= 1E-2:
+            new_angle = 0.
+
         # Get new zs
-        prop_zs = (math.cos(new_angle) * prev_cloud.zs
-                   + math.sin(new_angle) * new_zs)
+        prop_zs = {}
+        for line_id in prev_cloud.zs:
+            prop_zs[line_id] = (math.cos(new_angle) * prev_cloud.zs[line_id]
+                                + math.sin(new_angle) * new_zs[line_id])
 
         # create new CloudProbObj
         new_cloud = CloudProbObj.copy_changed_z(prev_cloud, prop_zs)

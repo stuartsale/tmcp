@@ -495,7 +495,8 @@ class CloudProbObj(object):
         new_obj = cp.deepcopy(prev_cloud)
 
         # get new likelihood
-        new_obj.set_zs(zs)
+        new_obj.zs = cp.deepcopy(zs)
+
         new_obj.estimate_loglikelihood()
 
         new_obj.log_posteriorprob = (new_obj.log_priorprob
@@ -557,7 +558,7 @@ class CloudProbObj(object):
             if line_id[0] in line_dict:
                 line_dict[line_id[0]].append(line_id[1])
             else:
-                line_dict[line_id[0]] = [line_dict[1]]
+                line_dict[line_id[0]] = [line_id[1]]
 
         new_obj.cogs = CoGsObj(new_obj.abundances_dict, line_dict,
                                new_obj.density_func, power_spec)
