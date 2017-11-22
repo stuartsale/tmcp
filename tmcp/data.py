@@ -133,16 +133,20 @@ class CloudDataSet(object):
     def __init__(self, files_dict, arrays_dict=None):
 
         self.data_objs = {}
+        self.lines = []
         for line_id, files in files_dict.items():
             self.data_objs[line_id] = CloudDataObj.from_fits(line_id[0],
                                                              line_id[1],
                                                              files[0],
                                                              files[1])
+            self.lines.append(line_id)
+
         if arrays_dict is not None:
             for line_id, arrays in arrays_dict.items():
                 self.data_objs[line_id] = CloudDataObj(line_id[0], line_id[1],
                                                        arrays[0], arrays[1],
                                                        arrays[2], arrays[3])
+                self.lines.append(line_id)
 
         lims = self.onsky_limits()
         self.max_opening_angle = 1.5 * max(abs(lims[0][1] - lims[0][0]),
