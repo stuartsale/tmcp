@@ -21,7 +21,8 @@ import copy as cp
 import math
 import numpy as np
 
-from cloud import CloudProbObj, CloudInducingObj
+from cloud import CloudProbObj
+from inducing import CloudInducingObj
 
 
 def update_zs_ESS(prev_cloud):

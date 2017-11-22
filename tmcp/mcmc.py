@@ -28,6 +28,7 @@ import cogs
 import cloud
 from data import CloudDataSet
 import density
+import inducing
 import samplers
 
 
@@ -100,12 +101,12 @@ class ApmEssMh(object):
         # construct the inducing_obj
 
         if inducing_x is None or inducing_y is None:
-            inducing_obj = cloud.CloudInducingObj.new_from_grid(
+            inducing_obj = inducing.CloudInducingObj.new_from_grid(
                                     3, 3, self.data_dict.onsky_limits()[0],
                                     self.data_dict.onsky_limits()[1])
         else:
-            inducing_obj = cloud.CloudInducingObj(inducing_x, inducing_y,
-                                                  np.zeros(inducing_x.shape))
+            inducing_obj = inducing.CloudInducingObj(
+                    inducing_x, inducing_y, np.zeros(inducing_x.shape))
 
         # Set distance array
 
@@ -158,6 +159,9 @@ class ApmEssMh(object):
 
             if mh_success:
                     self.accepts += 1
+
+            # update inducing points
+            self.last_cloud = samplers.update_inducing_ESS(self.last_cloud)
 
             # Add to chains
             if i > self.burnin and i % self.thin == 0:
