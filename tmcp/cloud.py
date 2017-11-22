@@ -135,6 +135,33 @@ class CloudInducingObj(object):
                        + np.power(y_pos - self.inducing_y, 2))
         return diff
 
+    def multi_diff(self, x_pos, y_pos):
+        """ multi_diff(x_pos, y_pos)
+
+            Get the angular differences between a multiple positions
+            as supplied and the inducing points.
+
+            Parameters
+            ----------
+            x_pos : ndarray
+                The x positions
+            y_pos :ndarray
+                The y positions, shape must match that of x_pos
+
+            Returns
+            -------
+            ndarray
+                The angular differences between the supplied position
+                and the inducing points.
+                The shape of this is (x_pos.size, nu)
+        """
+        diff = np.sqrt(np.power(x_pos.flatten().reshape(-1, 1)
+                                - self.inducing_x.flatten(), 2)
+                       + np.power(y_pos.flatten().reshape(-1, 1)
+                                  - self.inducing_y.flatten(),
+                                  2))
+        return diff
+
     @classmethod
     def new_from_grid(cls, nx, ny, x_range, y_range):
         """ new_from_grid(nx, ny, x_range, y_range)
@@ -207,7 +234,7 @@ class CloudProbObj(object):
         self.dist_array = dist_array
         self.nz = nz
 
-        self.lines = []
+        self.lines = self.data_dict.lines
 
         # initialise (log) probs to 0
         self.log_posteriorprob = 0.
@@ -221,6 +248,13 @@ class CloudProbObj(object):
 
         # initialise cogs
         self.cogs = None
+
+        # calculate angular distances between data pixels and inducing points
+        self.inducing_pixel_diffs = {}
+        for line_id in self.lines:
+            self.inducing_pixel_diffs[line_id] = (
+                self.inducing_obj.multi_diff(self.data_dict[line_id].x_coord,
+                                             self.data_dict[line_id].y_coord))
 
     def __deepcopy__(self, memo):
         """ ___deeppcopy__(memo)
@@ -367,34 +401,27 @@ class CloudProbObj(object):
         self.log_likelihood = 0.
         for line_id in self.lines:
             cov_marg = self.cov_func(0.)
-            for indices in np.ndindex(self.data_dict[line_id].shape):
 
-                # work out mean and sd
-                diff = self.inducing_obj.single_diff(
-                            self.data_dict[line_id].x_coord[indices],
-                            self.data_dict[line_id].y_coord[indices])
-                covar_vec = self.cov_func(diff)
+            # work out mean and sd
+            covar_mat = self.cov_func(self.inducing_pixel_diffs[line_id]).T
 
-                Q = cho_solve(self.inducing_obj.inducing_cov_mat_cho,
-                              covar_vec)
+            Q = cho_solve(self.inducing_obj.inducing_cov_mat_cho,
+                          covar_mat)
 
-                mean_cond = (self.col_mean
-                             + np.dot(Q, self.inducing_obj.inducing_values
-                                      - self.col_mean))
-                cov_cond = cov_marg - np.dot(Q, covar_vec)
+            mean_cond = (self.col_mean
+                         + np.dot(Q.T, self.inducing_obj.inducing_values
+                                  - self.col_mean))
+            cov_cond = cov_marg - np.sum(Q*covar_mat, axis=0)
 
-                # use z and mean and sd to get col dens
-                col_dens = mean_cond + cov_cond * self.zs[line_id][indices]
+            # use z and mean and sd to get col dens
+            col_dens = (mean_cond
+                        + cov_cond*self.zs[line_id].reshape(-1, self.nz).T)
 
-                # use CoG to convert to brightness temp
-                TBs = self.cogs(line_id[0], line_id[1], np.log(col_dens))
+            TBs = self.cogs(line_id[0], line_id[1], np.log(col_dens))
 
-                # get likelihood
-                self.log_likelihood += 1./self.nz * (
-                    - np.log(self.data_dict[line_id].error_array[indices])/2.
-                    - np.sum(np.power((
-                        TBs - self.data_dict[line_id].data_array[indices])
-                        / self.data_dict[line_id].error_array[indices], 2))/2.)
+            self.log_likelihood += -np.sum(np.power(
+                    (TBs - self.data_dict[line_id].data_array.flatten())
+                    / self.data_dict[line_id].error_array.flatten(), 2))/2.
 
     @classmethod
     def new_cloud(cls, density_func, power_spec, inducing_obj, abundances_dict,
@@ -423,9 +450,6 @@ class CloudProbObj(object):
         """
         new_obj = cls(density_func, power_spec, inducing_obj, abundances_dict,
                       data_dict, dist_array, nz)
-
-        for image in new_obj.data_dict:
-            new_obj.lines.append((image.species, image.line))
 
         # Get mean column density in >0 region
         new_obj.col_mean = new_obj.density_func.integral()
