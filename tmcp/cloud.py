@@ -128,17 +128,15 @@ class CloudProbObj(object):
             None
         """
         # mean
-        self.inducing_obj.inducing_mean = self.col_mean
+        self.inducing_obj.mean = self.col_mean
 
         # Fill in cov matrices
-        self.inducing_obj.inducing_cov_mat = (
-                                self.cov_func(self.inducing_obj.inducing_diff))
+        self.inducing_obj.cov_mat = self.cov_func(self.inducing_obj.diff)
 
         # Get cholesky decompositions
         try:
-            self.inducing_obj.inducing_cov_mat_cho = cho_factor(
-                                self.inducing_obj.inducing_cov_mat,
-                                check_finite=False)
+            self.inducing_obj.cov_mat_cho = cho_factor(
+                                self.inducing_obj.cov_mat, check_finite=False)
         except np.linalg.linalg.LinAlgError or ValueError:
             raise
 
@@ -178,13 +176,12 @@ class CloudProbObj(object):
 
         # calculate prob
 
-        Q = cho_solve(self.inducing_obj.inducing_cov_mat_cho,
-                      self.inducing_obj.inducing_values - self.col_mean)
+        Q = cho_solve(self.inducing_obj.cov_mat_cho,
+                      self.inducing_obj.values - self.col_mean)
 
         self.log_inducingprob = (
-            - np.sum(np.log(np.diag(
-                self.inducing_obj.inducing_cov_mat_cho[0])))
-            - np.dot(self.inducing_obj.inducing_values - self.col_mean, Q)/2.)
+            - np.sum(np.log(np.diag(self.inducing_obj.cov_mat_cho[0])))
+            - np.dot(self.inducing_obj.values - self.col_mean, Q)/2.)
 
     def random_zs(self, zs=None):
         """ set_zs()
@@ -234,11 +231,10 @@ class CloudProbObj(object):
             # work out mean and sd
             covar_mat = self.cov_func(self.inducing_pixel_diffs[line_id]).T
 
-            Q = cho_solve(self.inducing_obj.inducing_cov_mat_cho,
-                          covar_mat)
+            Q = cho_solve(self.inducing_obj.cov_mat_cho, covar_mat)
 
             self.mean_cond[line_id] = (
-                self.col_mean + np.dot(Q.T, self.inducing_obj.inducing_values
+                self.col_mean + np.dot(Q.T, self.inducing_obj.values
                                        - self.col_mean))
             self.var_cond[line_id] = var_marg - np.sum(Q*covar_mat, axis=0)
 
@@ -312,7 +308,7 @@ class CloudProbObj(object):
                                                         cov_values)
 
         # Set inducing values to initially match mean
-        new_obj.inducing_obj.inducing_values = (
+        new_obj.inducing_obj.values = (
                         np.zeros(new_obj.inducing_obj.nu) + new_obj.col_mean)
 
         # Get CoGs

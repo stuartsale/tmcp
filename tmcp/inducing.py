@@ -41,27 +41,23 @@ class CloudInducingObj(object):
         # make sure both sets of positions are 1D ndarrays
         # get inducing_diff 2D (matrix) ndarray
 
-        self.inducing_x = np.array(inducing_x).flatten()
-        self.inducing_y = np.array(inducing_y).flatten()
+        self.x = np.array(inducing_x).flatten()
+        self.y = np.array(inducing_y).flatten()
 
-        if self.inducing_x.shape != self.inducing_y.shape:
+        if self.x.shape != self.y.shape:
             raise ValueError("Dimensions of x & y inducing point arrays "
                              "do not match")
 
-        self.shape = self.inducing_x.shape
-        self.nu = self.inducing_x.size
+        self.shape = self.x.shape
+        self.nu = self.x.size
 
-        self.inducing_diff = np.sqrt(np.power(self.inducing_x
-                                              - self.inducing_x.reshape(
-                                                    self.nu, 1), 2)
-                                     + np.power(self.inducing_y
-                                                - self.inducing_y.reshape(
-                                                    self.nu, 1), 2))
+        self.diff = np.sqrt(np.power(self.x - self.x.reshape(self.nu, 1), 2)
+                            + np.power(self.y - self.y.reshape(self.nu, 1), 2))
 
-        self.inducing_values = inducing_vals.flatten()
-        self.inducing_cov_mat = np.zeros([self.nu, self.nu])
-        self.inducing_cov_mat_cho = np.zeros([self.nu, self.nu])
-        self.inducing_mean = 0.
+        self.values = inducing_vals.flatten()
+        self.ov_mat = np.zeros([self.nu, self.nu])
+        self.cov_mat_cho = np.zeros([self.nu, self.nu])
+        self.mean = 0.
 
     def add_values(self, values):
         """ add_values(line_id, values)
@@ -83,7 +79,7 @@ class CloudInducingObj(object):
             None
         """
         if self.values_check(values):
-            self.inducing_values = values
+            self.values = values
         else:
             raise ValueError("The number of values supplied does not match"
                              " the number of inducing points.")
@@ -104,7 +100,7 @@ class CloudInducingObj(object):
             bool
             Whether the shapes match
         """
-        return values.shape == self.inducing_x.shape
+        return values.shape == self.x.shape
 
     def single_diff(self, x_pos, y_pos):
         """ single_diff(x_pos, y_pos)
@@ -127,8 +123,8 @@ class CloudInducingObj(object):
                 The shape of this matches that of inducing_x and
                 inducing_y.
         """
-        diff = np.sqrt(np.power(x_pos - self.inducing_x, 2)
-                       + np.power(y_pos - self.inducing_y, 2))
+        diff = np.sqrt(np.power(x_pos - self.x, 2)
+                       + np.power(y_pos - self.y, 2))
         return diff
 
     def multi_diff(self, x_pos, y_pos):
@@ -152,10 +148,9 @@ class CloudInducingObj(object):
                 The shape of this is (x_pos.size, nu)
         """
         diff = np.sqrt(np.power(x_pos.flatten().reshape(-1, 1)
-                                - self.inducing_x.flatten(), 2)
+                                - self.x.flatten(), 2)
                        + np.power(y_pos.flatten().reshape(-1, 1)
-                                  - self.inducing_y.flatten(),
-                                  2))
+                                  - self.y.flatten(), 2))
         return diff
 
     @classmethod
@@ -177,8 +172,8 @@ class CloudInducingObj(object):
         """
         new_obj = cp.deepcopy(prev_obj)
 
-        cho_factor = np.linalg.cholesky(new_obj.inducing_cov_mat)
-        new_obj.inducing_values = (new_obj.inducing_mean
+        cho_factor = np.linalg.cholesky(new_obj.cov_mat)
+        new_obj.inducing_values = (new_obj.mean
                                    + np.dot(cho_factor,
                                             np.random.randn(new_obj.nu)))
 
@@ -248,19 +243,16 @@ class CloudInducingObj(object):
                     raise ValueError("Two inducing point objects are not "
                                      "compatable")
 
-        cho_inv = np.linalg.inv(inducing1.inducing_cov_mat_cho[0])
+        cho_factor = np.linalg.cholesky(new_obj.cov_mat)
+        cho_inv = np.linalg.inv(cho_factor)
 
-        inducing_zs1 = np.dot(cho_inv, (inducing1.inducing_values
-                                        - inducing1.inducing_mean))
-        inducing_zs2 = np.dot(cho_inv, (inducing2.inducing_values
-                                        - inducing2.inducing_mean))
+        inducing_zs1 = np.dot(cho_inv, (inducing1.values - inducing1.mean))
+        inducing_zs2 = np.dot(cho_inv, (inducing2.values - inducing2.mean))
 
         new_inducing_zs = weight1 * inducing_zs1 + weight2 * inducing_zs2
-        new_values = (inducing1.inducing_mean
-                      + np.dot(inducing1.inducing_cov_mat_cho[0],
-                               new_inducing_zs))
+        new_values = (inducing1.mean + np.dot(cho_factor, new_inducing_zs))
 
         new_inducing_obj = cp.deepcopy(inducing1)
-        new_inducing_obj.inducing_values = new_values
+        new_inducing_obj.values = new_values
 
         return new_inducing_obj
