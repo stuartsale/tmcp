@@ -63,11 +63,12 @@ class CloudInducingObj(object):
                                                 - self.inducing_y.reshape(
                                                     self.nu, 1), 2))
 
-        self.inducing_values = np.zeros(self.shape)
-        self.inducing_cov_mat = np.zeros(self.shape)
-        self.inducing_cov_mat_cho = np.zeros(self.shape)
+        self.inducing_values = inducing_vals.flatten()
+        self.inducing_cov_mat = np.zeros([self.nu, self.nu])
+        self.inducing_cov_mat_cho = np.zeros([self.nu, self.nu])
+        self.inducing_mean = 0.
 
-    def add_values(self, line_id, values):
+    def add_values(self, values):
         """ add_values(line_id, values)
 
             Add the values of the (column density) field at the inducing
@@ -87,7 +88,7 @@ class CloudInducingObj(object):
             None
         """
         if self.values_check(values):
-            self.inducing_values[line_id] = values
+            self.inducing_values = values
         else:
             raise ValueError("The number of values supplied does not match"
                              " the number of inducing points.")
@@ -163,6 +164,32 @@ class CloudInducingObj(object):
         return diff
 
     @classmethod
+    def random_sample(cls, prev_obj):
+        """ random_sample()
+
+            Radomly draw a new CloudInducingObj which shares most
+            of the same attributes as the previous object, but
+            with values that are drawn from the (shared) mean
+            and covariance matrix.
+
+            Parameters
+            ----------
+            prev_obj : CloudInducingObj
+
+            Returns
+            -------
+            new_obj : CloudInducingObj
+        """
+        new_obj = cp.deepcopy(prev_obj)
+
+        cho_factor = np.linalg.cholesky(new_obj.inducing_cov_mat)
+        new_obj.inducing_values = (new_obj.inducing_mean
+                                   + np.dot(cho_factor,
+                                            np.random.randn(new_obj.nu)))
+
+        return new_obj
+
+    @classmethod
     def new_from_grid(cls, nx, ny, x_range, y_range):
         """ new_from_grid(nx, ny, x_range, y_range)
 
@@ -195,6 +222,53 @@ class CloudInducingObj(object):
         y_pos = y_pos.flatten()
 
         return cls(x_pos, y_pos, np.zeros(x_pos.shape))
+
+    @classmethod
+    def weighted_add(cls, weight1, inducing1, weight2, inducing2, check=True):
+        """ weighted_add(weight1, inducing1, weight2, inducing2
+                         check=True)
+
+            Make a weighted combination of two CloudInducingObj
+            instances, optionally checking positions, covariance
+            matrices, etc agree.
+
+            Parameters
+            ----------
+            weight1 : float
+            inducing1 : CloudInducingObj
+            weight2 : float
+            inducing2 : CloudInducingObj
+            check : bool, optional
+
+            Returns
+            -------
+            new_inducing_obj : CloudInducingObj
+        """
+        if check:
+            if (np.all(inducing1.inducing_x != inducing2.inducing_x)
+                or np.all(inducing1.inducing_y != inducing2.inducing_y)
+                or inducing1.nu != inducing2.nu
+                or np.all(inducing1.inducing_cov_mat
+                          != inducing2.inducing_cov_mat)):
+                    raise ValueError("Two inducing point objects are not "
+                                     "compatable")
+
+        cho_inv = np.linalg.inv(inducing1.inducing_cov_mat_cho[0])
+
+        inducing_zs1 = np.dot(cho_inv, (inducing1.inducing_values
+                                        - inducing1.inducing_mean))
+        inducing_zs2 = np.dot(cho_inv, (inducing2.inducing_values
+                                        - inducing2.inducing_mean))
+
+        new_inducing_zs = weight1 * inducing_zs1 + weight2 * inducing_zs2
+        new_values = (inducing1.inducing_mean
+                      + np.dot(inducing1.inducing_cov_mat_cho[0],
+                               new_inducing_zs))
+
+        new_inducing_obj = cp.deepcopy(inducing1)
+        new_inducing_obj.inducing_values = new_values
+
+        return new_inducing_obj
 
 
 class CloudProbObj(object):
@@ -281,7 +355,7 @@ class CloudProbObj(object):
         result.data_dict = self.data_dict
         return result
 
-    def set_inducing_cov_matrices(self):
+    def set_inducing_cov_matrix(self):
         """ set_inducing_cov_matrices()
 
             Set the covariance matrices for the values at the inducing
@@ -295,6 +369,9 @@ class CloudProbObj(object):
             -------
             None
         """
+        # mean
+        self.inducing_obj.inducing_mean = self.col_mean
+
         # Fill in cov matrices
         self.inducing_obj.inducing_cov_mat = (
                                 self.cov_func(self.inducing_obj.inducing_diff))
@@ -339,24 +416,17 @@ class CloudProbObj(object):
             None
         """
         # Get cov matrices
-        self.set_inducing_cov_matrices()
+        self.set_inducing_cov_matrix()
 
-        # Cycle through lines
-        for line_id in self.lines:
+        # calculate prob
 
-            # calculate prob
+        Q = cho_solve(self.inducing_obj.inducing_cov_mat_cho,
+                      self.inducing_obj.inducing_values - self.col_mean)
 
-            Q = cho_solve(self.inducing_obj.inducing_cov_mat_cho,
-                          self.inducing_obj.inducing_values - self.col_mean)
-
-        # Combine across lines to get total prob
-        # - Implement inter-line covariances!?!
-
-            self.log_inducingprob += (
-                - np.sum(np.log(np.diag(
-                        self.inducing_obj.inducing_cov_mat_cho[0])))
-                - np.dot(self.inducing_obj.inducing_values
-                         - self.col_mean, Q)/2.)
+        self.log_inducingprob = (
+            - np.sum(np.log(np.diag(
+                self.inducing_obj.inducing_cov_mat_cho[0])))
+            - np.dot(self.inducing_obj.inducing_values - self.col_mean, Q)/2.)
 
     def random_zs(self, zs=None):
         """ set_zs()
@@ -409,7 +479,7 @@ class CloudProbObj(object):
             Q = cho_solve(self.inducing_obj.inducing_cov_mat_cho,
                           covar_mat)
 
-            self. mean_cond[line_id] = (
+            self.mean_cond[line_id] = (
                 self.col_mean + np.dot(Q.T, self.inducing_obj.inducing_values
                                        - self.col_mean))
             self.var_cond[line_id] = var_marg - np.sum(Q*covar_mat, axis=0)
@@ -501,7 +571,7 @@ class CloudProbObj(object):
         # Estimate probs
 
         new_obj.set_prior_logprob()
-        new_obj.set_inducing_cov_matrices()
+        new_obj.set_inducing_cov_matrix()
         new_obj.set_inducing_logprob()
         new_obj.random_zs()
 
@@ -612,7 +682,46 @@ class CloudProbObj(object):
         # Estimate probs
 
         new_obj.set_prior_logprob()
-        new_obj.set_inducing_cov_matrices()
+        new_obj.set_inducing_cov_matrix()
+        new_obj.set_inducing_logprob()
+
+        new_obj.set_conditional_moments()
+        new_obj.estimate_loglikelihood()
+
+        new_obj.log_posteriorprob = (new_obj.log_priorprob
+                                     + new_obj.log_inducingprob
+                                     + new_obj.log_likelihood)
+
+        return new_obj
+
+    @classmethod
+    def copy_changed_inducing(cls, prev_cloud, inducing_obj):
+        """ copy_changed_inducing(prev_cloud, copy_changed_inducing)
+
+            A factory method to produce a new CloudProbObj instance
+            that copies the zs and hyperparams from a previous instance,
+            but the new instance has newly supplied inducing_obj
+
+            Parameters
+            ----------
+            prev_cloud : CloudProbObj
+                The previous instance, upon which the new instance
+                is largely based.
+            inducing_obj : CloudInducingObj
+
+            Returns
+            -------
+            CloudProbObj
+                The new instance with the zs of the previous
+                instance and new hyperparams
+        """
+        # get copy
+        new_obj = cp.deepcopy(prev_cloud)
+
+        new_obj.inducing_obj = inducing_obj
+
+        # Estimate probs
+
         new_obj.set_inducing_logprob()
 
         new_obj.set_conditional_moments()

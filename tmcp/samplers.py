@@ -21,7 +21,7 @@ import copy as cp
 import math
 import numpy as np
 
-from cloud import CloudProbObj
+from cloud import CloudProbObj, CloudInducingObj
 
 
 def update_zs_ESS(prev_cloud):
@@ -150,3 +150,87 @@ def update_hypers_MH(prev_cloud, density_prop, ps_prop, inducing_prop,
         return new_cloud, True
     else:
         return prev_cloud, False
+
+
+def update_inducing_ESS(prev_cloud):
+    """ update_hypers_MH(inducing_prop)
+
+        Sample a new CloudProbObj, keeping the zs held constant, and
+        hyperparams constant, but updating inducing point values using
+        an elliptical slice sampler.
+
+        Parameters
+        ----------
+        prev_cloud : CloudProbObj
+            The previous sampled CloudProbObj
+
+        Returns
+        -------
+        new_cloud : CloudProbObj
+            The new sampled CloudProbObj
+    """
+    # define slice level
+    slice_level = np.random.rand()
+    log_slice_level = math.log(slice_level)
+
+    # Draw new inducing points to define ellipse
+    new_inducing_obj = CloudInducingObj.random_sample(prev_cloud.inducing_obj)
+
+    # Make first draw on ellipse
+    new_angle = 2 * math.pi * np.random.rand()
+
+    # Define angle-bracket
+    min_angle = new_angle - 2*math.pi
+    max_angle = new_angle
+
+    # create new CloudProbObj
+    new_cloud = CloudProbObj.copy_changed_inducing(prev_cloud,
+                                                   new_inducing_obj)
+
+    # Test prob
+    if ((new_cloud.log_posteriorprob - prev_cloud.log_posteriorprob)
+            > log_slice_level):
+        return new_cloud
+
+    # Iterate until acceptance
+    accepted = False
+    while not accepted:
+
+        # Draw new angle
+        new_angle = (max_angle - min_angle) * np.random.rand() + min_angle
+
+        if abs(new_angle) <= 1E-2:
+            new_angle = 0.
+
+        # Get new inducing_points
+        prop_inducing_points = (
+                CloudInducingObj.weighted_add(math.cos(new_angle),
+                                              prev_cloud.inducing_obj,
+                                              math.sin(new_angle),
+                                              new_inducing_obj))
+
+        # change CloudProbObj's inducing_points
+        new_cloud.inducing_obj = prop_inducing_points
+
+        # Estimate probs
+        new_cloud.set_inducing_logprob()
+        new_cloud.set_conditional_moments()
+        new_cloud.estimate_loglikelihood()
+        new_cloud.log_posteriorprob = (new_cloud.log_priorprob
+                                       + new_cloud.log_inducingprob
+                                       + new_cloud.log_likelihood)
+
+        # Test prob
+        if ((new_cloud.log_posteriorprob - prev_cloud.log_posteriorprob)
+                > log_slice_level):
+            accepted = True
+
+        # redefine bracket
+        else:
+            if new_angle <= 0:
+                min_angle = new_angle
+            else:
+                max_angle = new_angle
+
+    # Return new state
+    return new_cloud
