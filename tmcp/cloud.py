@@ -358,7 +358,7 @@ class CloudProbObj(object):
                 - np.dot(self.inducing_obj.inducing_values
                          - self.col_mean, Q)/2.)
 
-    def set_zs(self, zs=None):
+    def random_zs(self, zs=None):
         """ set_zs()
 
             Set the random numbers employed in the Monte Carlo
@@ -503,7 +503,7 @@ class CloudProbObj(object):
         new_obj.set_prior_logprob()
         new_obj.set_inducing_cov_matrices()
         new_obj.set_inducing_logprob()
-        new_obj.set_zs()
+        new_obj.random_zs()
 
         new_obj.set_conditional_moments()
         new_obj.estimate_loglikelihood()

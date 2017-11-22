@@ -83,8 +83,14 @@ def update_zs_ESS(prev_cloud):
             prop_zs[line_id] = (math.cos(new_angle) * prev_cloud.zs[line_id]
                                 + math.sin(new_angle) * new_zs[line_id])
 
-        # create new CloudProbObj
-        new_cloud = CloudProbObj.copy_changed_z(prev_cloud, prop_zs)
+        # change CloudProbObj's zs
+        new_cloud.zs = cp.deepcopy(prop_zs)
+
+        new_cloud.estimate_loglikelihood()
+
+        new_cloud.log_posteriorprob = (new_cloud.log_priorprob
+                                       + new_cloud.log_inducingprob
+                                       + new_cloud.log_likelihood)
 
         # Test prob
         if ((new_cloud.log_posteriorprob - prev_cloud.log_posteriorprob)
