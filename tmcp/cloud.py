@@ -383,6 +383,37 @@ class CloudProbObj(object):
                                         self.data_dict[line_id].shape[1],
                                         self.nz)
 
+    def set_conditional_moments(self):
+        """ set_conditional_moments()
+
+            Set the mean and variance for each pixel conditioned
+            on given hyperparameters and values at the inducing
+            points.
+
+            Parameters
+            ----------
+            None
+
+            Returns
+            -------
+            None
+        """
+        self.mean_cond = {}
+        self.var_cond = {}
+        for line_id in self.lines:
+            var_marg = self.cov_func(0.)
+
+            # work out mean and sd
+            covar_mat = self.cov_func(self.inducing_pixel_diffs[line_id]).T
+
+            Q = cho_solve(self.inducing_obj.inducing_cov_mat_cho,
+                          covar_mat)
+
+            self. mean_cond[line_id] = (
+                self.col_mean + np.dot(Q.T, self.inducing_obj.inducing_values
+                                       - self.col_mean))
+            self.var_cond[line_id] = var_marg - np.sum(Q*covar_mat, axis=0)
+
     def estimate_loglikelihood(self):
         """ estimate_loglikelihood()
 
@@ -400,22 +431,11 @@ class CloudProbObj(object):
         """
         self.log_likelihood = 0.
         for line_id in self.lines:
-            cov_marg = self.cov_func(0.)
-
-            # work out mean and sd
-            covar_mat = self.cov_func(self.inducing_pixel_diffs[line_id]).T
-
-            Q = cho_solve(self.inducing_obj.inducing_cov_mat_cho,
-                          covar_mat)
-
-            mean_cond = (self.col_mean
-                         + np.dot(Q.T, self.inducing_obj.inducing_values
-                                  - self.col_mean))
-            cov_cond = cov_marg - np.sum(Q*covar_mat, axis=0)
 
             # use z and mean and sd to get col dens
-            col_dens = (mean_cond
-                        + cov_cond*self.zs[line_id].reshape(-1, self.nz).T)
+            col_dens = (self.mean_cond[line_id]
+                        + self.var_cond[line_id]
+                        * self.zs[line_id].reshape(-1, self.nz).T)
 
             TBs = self.cogs(line_id[0], line_id[1], np.log(col_dens))
 
@@ -484,6 +504,8 @@ class CloudProbObj(object):
         new_obj.set_inducing_cov_matrices()
         new_obj.set_inducing_logprob()
         new_obj.set_zs()
+
+        new_obj.set_conditional_moments()
         new_obj.estimate_loglikelihood()
 
         new_obj.log_posteriorprob = (new_obj.log_priorprob
@@ -593,6 +615,7 @@ class CloudProbObj(object):
         new_obj.set_inducing_cov_matrices()
         new_obj.set_inducing_logprob()
 
+        new_obj.set_conditional_moments()
         new_obj.estimate_loglikelihood()
 
         new_obj.log_posteriorprob = (new_obj.log_priorprob
