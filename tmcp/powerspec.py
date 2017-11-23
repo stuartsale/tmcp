@@ -227,7 +227,7 @@ class SM14Powerspec(IsmPowerspec):
               / np.power(1 + np.power(k*self.L, 2), self.gamma/2+self.omega))
         return ps
 
-    def project(self, dist_array, dens_func):
+    def project(self, dist_array, dens_func, x_size=None, x_range=None):
         """ project(dens_array, dist_array)
 
             project the power-spectrum along an axis, given the desity
@@ -242,29 +242,42 @@ class SM14Powerspec(IsmPowerspec):
                 Distances expressed as multiples of L
             dens_array: ndarray
                 Densities at the distances given by dist_array
+            x_size : int, optional
+                The size of the array of k/distance values in the
+                x (&y) direction
+            x_range : float, optional
+                The size of the distance range spanned by the
+                x-distance array (by extension sets the step size in
+                the kx array)
             Notes
             -----
             This function uses an FFT transform.
         """
-        k_array_1D = np.fft.rfftfreq(dist_array.size,
-                                     (dist_array[1]-dist_array[0]))
+        kz_array_1D = np.fft.rfftfreq(dist_array.size,
+                                      (dist_array[1]-dist_array[0]))
 
-        fourier_dens2 = dens_func.fourier2(k_array_1D)
+        if x_size is not None and x_range is not None:
+            kx_array_1D = np.fft.rfftfreq(x_size,
+                                          x_range/x_size)
+        else:
+            kx_array_1D = kz_array_1D[:]
 
-        kx, kz = np.meshgrid(k_array_1D, k_array_1D)
+        fourier_dens2 = dens_func.fourier2(kz_array_1D)
+
+        kx, kz = np.meshgrid(kx_array_1D, kz_array_1D)
         k_array = np.sqrt(np.power(kx, 2) + np.power(kz, 2))
 
         ps = self.PS(k_array)
 
         # Bodge to account for very thick clouds
         if dist_array[-1]/2 < dens_func.half_width:
-            projected_ps = ps[:, 0]*np.pi*dens_func.half_width
+            projected_ps = ps[0, :]*np.pi*dens_func.half_width
         else:
-            projected_ps = ((ps[:, 0]*fourier_dens2[0]
-                            + 2*np.sum(ps[:, 1:]*fourier_dens2[1:], axis=1))
-                            * (k_array_1D[1]-k_array_1D[0]))
+            projected_ps = ((ps[0, :]*fourier_dens2[0]
+                            + 2*np.sum(ps[1:, :].T*fourier_dens2[1:], axis=1))
+                            * (kz_array_1D[1]-kz_array_1D[0]))
 
-        return k_array_1D, projected_ps, fourier_dens2
+        return kx_array_1D, projected_ps, fourier_dens2
 
     def param_dict(self):
         """ param_dict()

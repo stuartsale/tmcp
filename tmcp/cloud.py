@@ -306,14 +306,22 @@ class CloudProbObj(object):
         # Get mean column density in >0 region
         new_obj.col_mean = new_obj.density_func.integral()
 
+        # Get range of x coordinates needed for ps
+        x_size = 32
+        x_range = 2 * (np.radians(new_obj.data_dict.max_opening_angle)
+                       * new_obj.density_func.mid_dist)
+        x_array = np.linspace(0., x_range, x_size)
+
         # Project powerspectrum
         ks, ps, f2 = new_obj.power_spec.project(new_obj.dist_array,
-                                                new_obj.density_func)
+                                                new_obj.density_func,
+                                                x_size=x_size, x_range=x_range)
 
         # Obtain covariance function
         cov_values = np.fft.irfft(ps)
-        new_obj.cov_func = InterpolatedUnivariateSpline(new_obj.dist_array,
-                                                        cov_values)
+        new_obj.cov_func = InterpolatedUnivariateSpline(
+                        x_array[:int(x_size/2)], cov_values[:int(x_size/2)],
+                        ext='const')
 
         # Set inducing values to initially match mean
         new_obj.inducing_obj.values = (
@@ -423,14 +431,22 @@ class CloudProbObj(object):
         # Get mean column density in >0 region
         new_obj.col_mean = new_obj.density_func.integral()
 
+        # Get range of x coordinates needed for ps
+        x_size = 32
+        x_range = 2 * (np.radians(new_obj.data_dict.max_opening_angle)
+                       * new_obj.density_func.mid_dist)
+        x_array = np.linspace(0., x_range, x_size)
+
         # Project powerspectrum
         ks, ps, f2 = new_obj.power_spec.project(new_obj.dist_array,
-                                                new_obj.density_func)
+                                                new_obj.density_func,
+                                                x_size=x_size, x_range=x_range)
 
         # Obtain covariance function
         cov_values = np.fft.irfft(ps)
-        new_obj.cov_func = InterpolatedUnivariateSpline(new_obj.dist_array,
-                                                        cov_values)
+        new_obj.cov_func = InterpolatedUnivariateSpline(
+                        x_array[:int(x_size/2)], cov_values[:int(x_size/2)],
+                        ext='const')
 
         # Get CoGs
         line_dict = {}
