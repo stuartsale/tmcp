@@ -19,7 +19,9 @@
 
 from astropy.io import fits
 import copy as cp
+import math
 import numpy as np
+import scipy.constants as physcons
 from scipy.linalg import cho_factor, cho_solve
 from scipy.interpolate import InterpolatedUnivariateSpline
 
@@ -27,6 +29,8 @@ from cogs import CoGsObj
 from density import QuadraticDensityFunc
 from inducing import CloudInducingObj
 from powerspec import SM14Powerspec
+
+logparsec = math.log10(physcons.parsec*100.)  # in cm
 
 
 class CloudProbObj(object):
@@ -261,7 +265,10 @@ class CloudProbObj(object):
                         + self.var_cond[line_id]
                         * self.zs[line_id].reshape(-1, self.nz).T)
 
-            TBs = self.cogs(line_id[0], line_id[1], np.log(col_dens))
+            # convert to log( cm^-2) units
+            log_col = np.log10(col_dens) + logparsec
+
+            TBs = self.cogs(line_id[0], line_id[1], log_col)
 
             self.log_likelihood += -np.sum(np.power(
                     (TBs - self.data_dict[line_id].data_array.flatten())
