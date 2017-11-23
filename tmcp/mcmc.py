@@ -126,7 +126,7 @@ class ApmEssMh(object):
 
         # set up recarray to store chain
 
-        self.chain_cols = (self.last_cloud.density_func.param_names
+        self.chain_cols = (["i"] + self.last_cloud.density_func.param_names
                            + self.last_cloud.power_spec.param_names
                            + self.last_cloud.abundances_dict.keys()
                            + ["log_posteriorprob", "log_priorprob",
@@ -164,7 +164,7 @@ class ApmEssMh(object):
             self.last_cloud = samplers.update_inducing_ESS(self.last_cloud)
 
             # Add to chains
-            if i > self.burnin and i % self.thin == 0:
+            if i >= self.burnin and i % self.thin == 0:
                 self.store_to_chain((i-self.burnin)/self.thin, i)
 
         self.run = True
@@ -181,6 +181,7 @@ class ApmEssMh(object):
             -------
             None
         """
+        self.hyper_chain[row]["i"] = iteration
         density_params = self.last_cloud.density_func.param_dict()
         for field in density_params:
             self.hyper_chain[row][field] = density_params[field]
