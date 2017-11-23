@@ -196,7 +196,7 @@ class ApmEssMh(object):
 
         for n in range(self.last_cloud.inducing_obj.nu):
             self.hyper_chain[row]["u{0:d}".format(n)] = (
-                    self.last_cloud.inducing_obj.inducing_values[n])
+                    self.last_cloud.inducing_obj.values[n])
 
         # Probs
         self.hyper_chain[row]["log_posteriorprob"] = (

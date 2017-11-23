@@ -173,9 +173,8 @@ class CloudInducingObj(object):
         new_obj = cp.deepcopy(prev_obj)
 
         cho_factor = np.linalg.cholesky(new_obj.cov_mat)
-        new_obj.inducing_values = (new_obj.mean
-                                   + np.dot(cho_factor,
-                                            np.random.randn(new_obj.nu)))
+        new_obj.values = (new_obj.mean + np.dot(cho_factor,
+                                                np.random.randn(new_obj.nu)))
 
         return new_obj
 
@@ -235,15 +234,14 @@ class CloudInducingObj(object):
             new_inducing_obj : CloudInducingObj
         """
         if check:
-            if (np.all(inducing1.inducing_x != inducing2.inducing_x)
-                or np.all(inducing1.inducing_y != inducing2.inducing_y)
-                or inducing1.nu != inducing2.nu
-                or np.all(inducing1.inducing_cov_mat
-                          != inducing2.inducing_cov_mat)):
-                    raise ValueError("Two inducing point objects are not "
-                                     "compatable")
+            if (np.all(inducing1.x != inducing2.x)
+                    or np.all(inducing1.y != inducing2.y)
+                    or inducing1.nu != inducing2.nu
+                    or np.all(inducing1.cov_mat != inducing2.cov_mat)):
+                raise ValueError("Two inducing point objects are not "
+                                 "compatable")
 
-        cho_factor = np.linalg.cholesky(new_obj.cov_mat)
+        cho_factor = np.linalg.cholesky(inducing1.cov_mat)
         cho_inv = np.linalg.inv(cho_factor)
 
         inducing_zs1 = np.dot(cho_inv, (inducing1.values - inducing1.mean))
