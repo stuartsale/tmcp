@@ -110,7 +110,7 @@ def update_zs_ESS(prev_cloud):
 
 
 def update_hypers_MH(prev_cloud, density_prop, ps_prop, inducing_prop,
-                     abundances_prop):
+                     abundances_prop, Tg_prop):
     """ update_hypers_MH(prev_cloud, density_prop, ps_prop, inducing_prop,
                          abundances_prop))
 
@@ -137,12 +137,13 @@ def update_hypers_MH(prev_cloud, density_prop, ps_prop, inducing_prop,
     new_power_spec = prev_cloud.power_spec.MH_propose(ps_prop)
     new_inducing_obj = cp.deepcopy(prev_cloud.inducing_obj)
     new_abundances = cp.deepcopy(prev_cloud.abundances_dict)
+    new_Tg = max(3., prev_cloud.Tg + np.random.randn * Tg_prop)
 
     # create new CloudProbObj
     new_cloud = CloudProbObj.copy_changed_hypers(prev_cloud, new_density_func,
                                                  new_power_spec,
                                                  new_inducing_obj,
-                                                 new_abundances)
+                                                 new_abundances, new_Tg)
 
     if (new_cloud.log_posteriorprob - prev_cloud.log_posteriorprob) > 0:
         return new_cloud, True

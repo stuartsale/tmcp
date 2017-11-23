@@ -60,7 +60,8 @@ class ApmEssMh(object):
     """
 
     def __init__(self, data_dict_files, mh_prop, density_func,
-                 power_spec, abundances_dict, inducing_x=None, inducing_y=None,
+                 power_spec, abundances_dict, Tg,
+                 inducing_x=None, inducing_y=None,
                  dist_array=None, data_dict_arrays=None,
                  iterations=10000, burnin=5000,
                  thin=10):
@@ -122,13 +123,14 @@ class ApmEssMh(object):
                                                        inducing_obj,
                                                        abundances_dict,
                                                        self.data_dict,
-                                                       self.dist_array)
+                                                       self.dist_array, Tg)
 
         # set up recarray to store chain
 
         self.chain_cols = (["i"] + self.last_cloud.density_func.param_names
                            + self.last_cloud.power_spec.param_names
                            + self.last_cloud.abundances_dict.keys()
+                           + ["Tg"]
                            + ["log_posteriorprob", "log_priorprob",
                               "log_inducingprob", "log_likelihood",
                               "accept_rate"])
@@ -155,7 +157,7 @@ class ApmEssMh(object):
             # update hypers
             self.last_cloud, mh_success = samplers.update_hypers_MH(
                         self.last_cloud, self.mh_prop["density"],
-                        self.mh_prop["ps"], {}, {})
+                        self.mh_prop["ps"], {}, {}, self.mh_prop["Tg"])
 
             if mh_success:
                     self.accepts += 1
@@ -193,6 +195,8 @@ class ApmEssMh(object):
         for field in self.last_cloud.abundances_dict:
             self.hyper_chain[row][field] = (
                                         self.last_cloud.abundances_dict[field])
+
+        self.hyper_chain[row][field] = self.last_cloud.Tg
 
         for n in range(self.last_cloud.inducing_obj.nu):
             self.hyper_chain[row]["u{0:d}".format(n)] = (

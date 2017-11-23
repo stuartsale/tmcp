@@ -58,12 +58,13 @@ class CloudProbObj(object):
     """
 
     def __init__(self, density_func, power_spec, inducing_obj,
-                 abundances_dict, data_dict, dist_array, nz=10):
+                 abundances_dict, data_dict, dist_array, Tg, nz=10):
 
         self.density_func = density_func
         self.power_spec = power_spec
         self.inducing_obj = inducing_obj
         self.abundances_dict = abundances_dict
+        self.Tg = Tg
 
         self.data_dict = data_dict
 
@@ -262,7 +263,7 @@ class CloudProbObj(object):
 
             # use z and mean and sd to get col dens
             col_dens = (self.mean_cond[line_id]
-                        + self.var_cond[line_id]
+                        + np.sqrt(self.var_cond[line_id])
                         * self.zs[line_id].reshape(-1, self.nz).T)
 
             # convert to log( cm^-2) units
@@ -276,7 +277,7 @@ class CloudProbObj(object):
 
     @classmethod
     def new_cloud(cls, density_func, power_spec, inducing_obj, abundances_dict,
-                  data_dict, dist_array, nz=10):
+                  data_dict, dist_array, Tg, nz=10):
         """ new_cloud(density_func, power_spec, inducing_obj,
                       abundances_dict, data_dict, dist_array, nz=10)
 
@@ -300,7 +301,7 @@ class CloudProbObj(object):
                 The new instance with probabilities etc all set.
         """
         new_obj = cls(density_func, power_spec, inducing_obj, abundances_dict,
-                      data_dict, dist_array, nz)
+                      data_dict, dist_array, Tg, nz)
 
         # Get mean column density in >0 region
         new_obj.col_mean = new_obj.density_func.integral()
@@ -327,7 +328,8 @@ class CloudProbObj(object):
                 line_dict[line_id[0]] = [line_id[1]]
 
         new_obj.cogs = CoGsObj(new_obj.abundances_dict, line_dict,
-                               new_obj.density_func, power_spec)
+                               new_obj.density_func, power_spec,
+                               Tg=new_obj.Tg)
 
         # Estimate probs
 
@@ -384,7 +386,7 @@ class CloudProbObj(object):
 
     @classmethod
     def copy_changed_hypers(cls, prev_cloud, density_func, power_spec,
-                            inducing_obj, abundances_dict):
+                            inducing_obj, abundances_dict, Tg):
         """ copy_changed_z(prev_cloud, zs)
 
             A factory method to produce a new CloudProbObj instance
@@ -416,6 +418,7 @@ class CloudProbObj(object):
         new_obj.power_spec = power_spec
         new_obj.inducing_obj = inducing_obj
         new_obj.abundances_dict = abundances_dict
+        new_obj.Tg = Tg
 
         # Get mean column density in >0 region
         new_obj.col_mean = new_obj.density_func.integral()
@@ -438,7 +441,8 @@ class CloudProbObj(object):
                 line_dict[line_id[0]] = [line_id[1]]
 
         new_obj.cogs = CoGsObj(new_obj.abundances_dict, line_dict,
-                               new_obj.density_func, power_spec)
+                               new_obj.density_func, power_spec,
+                               Tg=new_obj.Tg)
 
         # Estimate probs
 
